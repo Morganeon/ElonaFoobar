@@ -1,16 +1,16 @@
-#include "../application.hpp"
-#include "../input.hpp"
-#include "../font.hpp"
-#include "../color.hpp"
-// TODO: this dependency is not good.
-#include "../../config.hpp"
 #include "../detail/sdl.hpp"
-#include "../window.hpp"
-#include <unordered_map>
 #include <iostream>
+#include <unordered_map>
+#include "../application.hpp"
+#include "../color.hpp"
+#include "../font.hpp"
+#include "../input.hpp"
+#include "../touch_input.hpp"
+#include "../window.hpp"
 
 
-namespace {
+namespace
+{
 
 struct font_cache_key
 {
@@ -103,8 +103,6 @@ struct TexBuffer
     snail::color color{0, 0, 0, 255};
     int x = 0;
     int y = 0;
-    int width = 32;
-    int height = 32;
     int mode = 2;
 };
 
@@ -113,42 +111,56 @@ int current_buffer;
 std::vector<TexBuffer> tex_buffers;
 ::SDL_Texture* tmp_buffer;
 ::SDL_Texture* tmp_buffer_slow;
+::SDL_Texture* android_display_region;
 
 TexBuffer& current_tex_buffer()
 {
     return tex_buffers[current_buffer];
 }
 
-void setup_tmp_buffers()
+void setup_buffers()
 {
-  // Default buffer for high-frequency texture copies.
-  detail::tmp_buffer = snail::detail::enforce_sdl(::SDL_CreateTexture(
-      application::instance().get_renderer().ptr(),
-      SDL_PIXELFORMAT_ARGB8888,
-      SDL_TEXTUREACCESS_TARGET,
-      1024,
-      1024));
+    // Default buffer for high-frequency texture copies.
+    detail::tmp_buffer = snail::detail::enforce_sdl(::SDL_CreateTexture(
+        application::instance().get_renderer().ptr(),
+        SDL_PIXELFORMAT_ARGB8888,
+        SDL_TEXTUREACCESS_TARGET,
+        1024,
+        1024));
 
-  // Slow buffer for texture copies larger than 1024 pixels.
-  // The only real places where this gets used seem to be when
-  // rendering the message box and when rendering fullscreen
-  // backgrounds.
-  detail::tmp_buffer_slow = snail::detail::enforce_sdl(::SDL_CreateTexture(
-      application::instance().get_renderer().ptr(),
-      SDL_PIXELFORMAT_ARGB8888,
-      SDL_TEXTUREACCESS_TARGET,
-      // The assumption here is that it's pointless to copy a texture
-      // larger than the size of the screen, because the player wouldn't
-      // see the rest of the texture. That should save some cycles on less
-      // powerful GPUs.
-      std::max(1024, application::instance().width()),
-      std::max(1024, application::instance().height())));
+    // Slow buffer for texture copies larger than 1024 pixels.
+    // The only real places where this gets used seem to be when
+    // rendering the message box and when rendering fullscreen
+    // backgrounds.
+    detail::tmp_buffer_slow = snail::detail::enforce_sdl(::SDL_CreateTexture(
+        application::instance().get_renderer().ptr(),
+        SDL_PIXELFORMAT_ARGB8888,
+        SDL_TEXTUREACCESS_TARGET,
+        // The assumption here is that it's pointless to copy a texture
+        // larger than the size of the screen, because the player wouldn't
+        // see the rest of the texture. That should save some cycles on less
+        // powerful GPUs.
+        std::max(1024, application::instance().width()),
+        std::max(1024, application::instance().height())));
 
-  application::instance().register_finalizer(
-      []() {
+    if (application::is_android)
+    {
+        // Output texture for Android. This is so the game window can
+        // be placed such that it covers only part of the actual
+        // screen, or scaled up and down.
+        detail::android_display_region =
+            snail::detail::enforce_sdl(::SDL_CreateTexture(
+                application::instance().get_renderer().ptr(),
+                SDL_PIXELFORMAT_ARGB8888,
+                SDL_TEXTUREACCESS_TARGET,
+                application::instance().width(),
+                application::instance().height()));
+    }
+
+    application::instance().register_finalizer([]() {
         ::SDL_DestroyTexture(detail::tmp_buffer);
         ::SDL_DestroyTexture(detail::tmp_buffer_slow);
-      });
+    });
 }
 
 ::SDL_Texture* get_tmp_buffer(int width, int height)
@@ -203,8 +215,9 @@ namespace mesbox_detail
 
 struct MessageBox
 {
-    MessageBox(std::string& buffer, bool text)
+    MessageBox(std::string& buffer, int keywait, bool text)
         : buffer(buffer)
+        , keywait(keywait)
         , text(text)
     {
     }
@@ -213,7 +226,7 @@ struct MessageBox
     void update()
     {
         auto& input = input::instance();
-        buffer += input.get_text();
+        buffer += input.pop_text();
 
         if (text)
         {
@@ -233,7 +246,8 @@ struct MessageBox
                 else if (input.is_pressed(key::backspace) && !buffer.empty())
                 {
                     if (backspace_held_frames == 0
-                        || (backspace_held_frames > 15 && backspace_held_frames % 2 == 0))
+                        || (backspace_held_frames > 15
+                            && backspace_held_frames % 2 == 0))
                     {
                         // Delete the last character.
                         size_t last_byte_count{};
@@ -243,20 +257,22 @@ struct MessageBox
                             last_byte_count = byte;
                             i += byte;
                         }
-                        buffer.erase(buffer.size() - last_byte_count, last_byte_count);
+                        buffer.erase(
+                            buffer.size() - last_byte_count, last_byte_count);
                     }
                     backspace_held_frames++;
                 }
-                else if (input.is_pressed(key::key_v)
-                         && input.is_pressed(key::ctrl))
+                else if (
+                    input.is_pressed(key::key_v) && input.is_pressed(key::ctrl))
                 {
                     // Paste.
                     std::unique_ptr<char, decltype(&::SDL_free)> text_ptr{
                         ::SDL_GetClipboardText(), ::SDL_free};
 
-                    buffer += strutil::replace(text_ptr.get(), u8"\r\n", u8"\n");
+                    buffer +=
+                        strutil::replace(text_ptr.get(), u8"\r\n", u8"\n");
                 }
-                else if(!input.is_pressed(key::backspace))
+                else if (!input.is_pressed(key::backspace))
                 {
                     backspace_held_frames = 0;
                 }
@@ -264,8 +280,8 @@ struct MessageBox
         }
         else
         {
-            if (input.is_pressed(key::enter, config::instance().keywait)
-                || input.is_pressed(key::keypad_enter, config::instance().keywait))
+            if (input.is_pressed(key::enter, keywait)
+                || input.is_pressed(key::keypad_enter, keywait))
             {
                 // New line.
                 buffer += '\n';
@@ -276,6 +292,7 @@ struct MessageBox
 
 private:
     std::string& buffer;
+    int keywait;
     bool text;
     int backspace_held_frames{};
 };
@@ -324,10 +341,15 @@ void mes(const std::string& text)
     }
 }
 
-void mesbox(std::string& buffer, bool text)
+void mesbox(std::string& buffer, int keywait, bool text)
 {
     mesbox_detail::message_boxes.emplace_back(
-        std::make_unique<mesbox_detail::MessageBox>(buffer, text));
+        std::make_unique<mesbox_detail::MessageBox>(buffer, keywait, text));
+
+    if (application::is_android && text)
+    {
+        input::instance().show_soft_keyboard();
+    }
 }
 
 void picload(basic_image& img, int mode)
@@ -336,10 +358,8 @@ void picload(basic_image& img, int mode)
     {
         buffer(detail::current_buffer, img.width(), img.height());
     }
-    const auto save =
-        application::instance().get_renderer().blend_mode();
-    application::instance().get_renderer().set_blend_mode(
-        blend_mode_t::none);
+    const auto save = application::instance().get_renderer().blend_mode();
+    application::instance().get_renderer().set_blend_mode(blend_mode_t::none);
     application::instance().get_renderer().render_image(
         img, detail::current_tex_buffer().x, detail::current_tex_buffer().y);
 
@@ -352,14 +372,44 @@ void pos(int x, int y)
     detail::current_tex_buffer().y = y;
 }
 
-void redraw()
+static void redraw_android()
 {
     auto& renderer = application::instance().get_renderer();
-    const auto save = renderer.render_target();
+    rect pos = application::instance().window_pos();
+
     renderer.set_render_target(nullptr);
+    renderer.clear();
+    renderer.render_image(
+        detail::android_display_region, pos.x, pos.y, pos.width, pos.height);
+
+    auto itr = font_detail::font_cache.find({14, font_t::style_t::regular});
+    if (itr != std::end(font_detail::font_cache))
+    {
+        renderer.set_font(itr->second);
+    }
+    touch_input::instance().draw_quick_actions();
+}
+
+void redraw()
+{
+    ::SDL_Texture* target = nullptr;
+    if (application::is_android)
+    {
+        target = detail::android_display_region;
+    }
+
+    auto& renderer = application::instance().get_renderer();
+    const auto save = renderer.render_target();
+    renderer.set_render_target(target);
     renderer.set_draw_color(snail::color{0, 0, 0, 255});
     renderer.clear();
     renderer.render_image(detail::tex_buffers[0].texture, 0, 0);
+
+    if (application::is_android)
+    {
+        redraw_android();
+    }
+
     renderer.present();
     renderer.set_render_target(save);
 }
@@ -382,6 +432,11 @@ void onkey_0()
 {
     mesbox_detail::message_boxes.erase(
         std::end(mesbox_detail::message_boxes) - 1);
+
+    if (application::is_android)
+    {
+        input::instance().hide_soft_keyboard();
+    }
 }
 
 namespace await_detail
@@ -408,9 +463,9 @@ void await(int msec)
     await_detail::last_await = now;
 }
 
-void boxf(int x1, int y1, int x2, int y2, const snail::color& color)
+void boxf(int x, int y, int width, int height, const snail::color& color)
 {
-    const auto save_alpha = detail::current_tex_buffer().color.a;
+    const auto save_color = detail::current_tex_buffer().color;
     detail::current_tex_buffer().color = color;
     application::instance().get_renderer().set_draw_color(color);
     if (color == snail::color{0, 0, 0, 0})
@@ -423,9 +478,8 @@ void boxf(int x1, int y1, int x2, int y2, const snail::color& color)
         application::instance().get_renderer().set_blend_mode(
             blend_mode_t::blend);
     }
-    application::instance().get_renderer().fill_rect(
-        x1, y1, x2 - x1, y2 - y1);
-    detail::current_tex_buffer().color.a = save_alpha;
+    application::instance().get_renderer().fill_rect(x, y, width, height);
+    detail::current_tex_buffer().color = save_color;
 }
 
 void boxf(const snail::color& color)
@@ -482,8 +536,7 @@ void buffer(int window_id, int width, int height)
             ::SDL_DestroyTexture(ptr);
         });
 
-    const auto save =
-        application::instance().get_renderer().render_target();
+    const auto save = application::instance().get_renderer().render_target();
     application::instance().get_renderer().set_render_target(
         detail::tex_buffers[window_id].texture);
     application::instance().get_renderer().set_draw_color({0, 0, 0, 0});
@@ -505,7 +558,7 @@ void color(int r, int g, int b)
         detail::current_tex_buffer().color);
 }
 
-void font(int size, font_t::style_t style, const std::string& filename)
+void font(int size, font_t::style_t style, const fs::path& filepath)
 {
     auto& renderer = application::instance().get_renderer();
     if (renderer.font().size() == size && renderer.font().style() == style)
@@ -521,68 +574,33 @@ void font(int size, font_t::style_t style, const std::string& filename)
         const auto inserted = font_detail::font_cache.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(size, style),
-            std::forward_as_tuple(
-                filename,
-                size,
-                style));
+            std::forward_as_tuple(filepath, size, style));
         renderer.set_font(inserted.first->second);
     }
 }
 
-void gcopy(int window_id, int src_x, int src_y, int src_width, int src_height)
+
+
+void gcopy(
+    int window_id,
+    int src_x,
+    int src_y,
+    int src_width,
+    int src_height,
+    int dst_width,
+    int dst_height)
 {
+    auto&& renderer = snail::application::instance().get_renderer();
+
     detail::set_blend_mode();
     snail::detail::enforce_sdl(::SDL_SetTextureAlphaMod(
         detail::tex_buffers[window_id].texture,
         detail::current_tex_buffer().color.a));
 
-    if (window_id == detail::current_buffer)
-    {
-        src_width =
-            src_width == 0 ? detail::current_tex_buffer().width : src_width;
-        src_height =
-            src_height == 0 ? detail::current_tex_buffer().height : src_height;
-        auto tmp_buffer = detail::get_tmp_buffer(src_width, src_height);
-        application::instance().get_renderer().set_render_target(
-            tmp_buffer);
-        if (window_id >= 10)
-        {
-            const auto save =
-                application::instance().get_renderer().blend_mode();
-            application::instance().get_renderer().set_blend_mode(
-                blend_mode_t::none);
-            application::instance().get_renderer().set_draw_color(
-                {0, 0, 0, 0});
-            application::instance().get_renderer().set_blend_mode(save);
-        }
-        application::instance().get_renderer().clear();
-        application::instance().get_renderer().render_image(
-            detail::tex_buffers[window_id].texture,
-            src_x,
-            src_y,
-            src_width,
-            src_height,
-            0,
-            0);
-        gsel(window_id);
-        application::instance().get_renderer().render_image(
-            tmp_buffer,
-            0,
-            0,
-            src_width,
-            src_height,
-            detail::current_tex_buffer().x,
-            detail::current_tex_buffer().y);
-        return;
-    }
-
     int dst_x = detail::current_tex_buffer().x;
     int dst_y = detail::current_tex_buffer().y;
-    src_width = src_width == 0 ? detail::current_tex_buffer().width : src_width;
-    src_height =
-        src_height == 0 ? detail::current_tex_buffer().height : src_height;
-    int dst_width = src_width;
-    int dst_height = src_height;
+    dst_width = dst_width == -1 ? src_width : dst_width;
+    dst_height = dst_height == -1 ? src_height : dst_height;
 
     if (src_x < 0)
     {
@@ -609,17 +627,48 @@ void gcopy(int window_id, int src_x, int src_y, int src_width, int src_height)
         dst_height -= excess;
     }
 
-    application::instance().get_renderer().render_image(
-        detail::tex_buffers[window_id].texture,
-        src_x,
-        src_y,
-        src_width,
-        src_height,
-        dst_x,
-        dst_y,
-        dst_width,
-        dst_height);
+    if (window_id == detail::current_buffer)
+    {
+        auto tmp_buffer = detail::get_tmp_buffer(dst_width, dst_height);
+        renderer.set_render_target(tmp_buffer);
+        if (window_id >= 10)
+        {
+            const auto save = renderer.blend_mode();
+            renderer.set_blend_mode(blend_mode_t::none);
+            renderer.set_draw_color({0, 0, 0, 0});
+            renderer.set_blend_mode(save);
+        }
+        renderer.clear();
+        renderer.render_image(
+            detail::tex_buffers[window_id].texture,
+            src_x,
+            src_y,
+            src_width,
+            src_height,
+            0,
+            0,
+            dst_width,
+            dst_height);
+        gsel(window_id);
+        renderer.render_image(
+            tmp_buffer, 0, 0, dst_width, dst_height, dst_x, dst_y);
+    }
+    else
+    {
+        renderer.render_image(
+            detail::tex_buffers[window_id].texture,
+            src_x,
+            src_y,
+            src_width,
+            src_height,
+            dst_x,
+            dst_y,
+            dst_width,
+            dst_height);
+    }
 }
+
+
 
 int ginfo(int type)
 {
@@ -655,43 +704,61 @@ int ginfo(int type)
     }
 }
 
-void gmode(int mode, int width, int height, int alpha)
+
+
+void gmode(int mode, int alpha)
 {
     detail::current_tex_buffer().mode = mode;
     detail::set_blend_mode();
 
-    detail::current_tex_buffer().width = width;
-    detail::current_tex_buffer().height = height;
     detail::current_tex_buffer().color.a = clamp(alpha, 0, 255);
 }
 
-void grotate2(
+
+
+void grotate(
     int window_id,
     int src_x,
     int src_y,
-    double angle,
-    int dst_width,
-    int dst_height)
+    int src_width,
+    int src_height,
+    double angle)
 {
+    grotate(
+        window_id,
+        src_x,
+        src_y,
+        src_width,
+        src_height,
+        src_width,
+        src_height,
+        angle);
+}
+
+
+
+void grotate(
+    int window_id,
+    int src_x,
+    int src_y,
+    int src_width,
+    int src_height,
+    int dst_width,
+    int dst_height,
+    double angle)
+{
+    assert(window_id != detail::current_buffer);
+
     detail::set_blend_mode();
     snail::detail::enforce_sdl(::SDL_SetTextureAlphaMod(
         detail::tex_buffers[window_id].texture,
         detail::current_tex_buffer().color.a));
 
-    if (window_id == detail::current_buffer)
-    {
-        assert(0);
-    }
-
     ::SDL_Rect src_rect{
         src_x,
         src_y,
-        detail::current_tex_buffer().width == -1
-            ? dst_width
-            : detail::current_tex_buffer().width,
-        detail::current_tex_buffer().height == -1
-            ? dst_height
-            : detail::current_tex_buffer().height,
+        src_width,
+        src_height,
     };
     ::SDL_Rect dst_rect{
         detail::current_tex_buffer().x - dst_width / 2,
@@ -725,90 +792,7 @@ void grotate2(
         ::SDL_FLIP_NONE));
 }
 
-void grotate(
-    int window_id,
-    int src_x,
-    int src_y,
-    double angle,
-    int dst_width,
-    int dst_height)
-{
-    if (angle != 0)
-    {
-        grotate2(window_id, src_x, src_y, angle, dst_width, dst_height);
-        return;
-    }
 
-    detail::set_blend_mode();
-    snail::detail::enforce_sdl(::SDL_SetTextureAlphaMod(
-        detail::tex_buffers[window_id].texture,
-        detail::current_tex_buffer().color.a));
-
-    if (window_id == detail::current_buffer)
-    {
-        auto tmp_buffer = detail::get_tmp_buffer(dst_width, dst_height);
-        application::instance().get_renderer().set_render_target(
-            tmp_buffer);
-        if (window_id < 10)
-        {
-            application::instance().get_renderer().set_blend_mode(
-                blend_mode_t::none);
-            application::instance().get_renderer().set_draw_color(
-                {0, 0, 0, 0});
-        }
-        else
-        {
-            const auto save =
-                application::instance().get_renderer().blend_mode();
-            application::instance().get_renderer().set_blend_mode(
-                blend_mode_t::none);
-            application::instance().get_renderer().set_draw_color(
-                {0, 0, 0, 0});
-            application::instance().get_renderer().set_blend_mode(save);
-        }
-        application::instance().get_renderer().clear();
-        application::instance().get_renderer().render_image(
-            detail::tex_buffers[window_id].texture,
-            src_x,
-            src_y,
-            detail::current_tex_buffer().width == -1
-                ? dst_width
-                : detail::current_tex_buffer().width,
-            detail::current_tex_buffer().height == -1
-                ? dst_height
-                : detail::current_tex_buffer().height,
-            0,
-            0,
-            dst_width,
-            dst_height);
-
-        gsel(window_id);
-        application::instance().get_renderer().render_image(
-            tmp_buffer,
-            0,
-            0,
-            dst_width,
-            dst_height,
-            detail::current_tex_buffer().x - dst_width / 2,
-            detail::current_tex_buffer().y - dst_height / 2);
-        return;
-    }
-
-    application::instance().get_renderer().render_image(
-        detail::tex_buffers[window_id].texture,
-        src_x,
-        src_y,
-        detail::current_tex_buffer().width == -1
-            ? dst_width
-            : detail::current_tex_buffer().width,
-        detail::current_tex_buffer().height == -1
-            ? dst_height
-            : detail::current_tex_buffer().height,
-        detail::current_tex_buffer().x - dst_width / 2,
-        detail::current_tex_buffer().y - dst_height / 2,
-        dst_width,
-        dst_height);
-}
 
 void gsel(int window_id)
 {
@@ -817,120 +801,56 @@ void gsel(int window_id)
         detail::current_tex_buffer().texture);
 }
 
-void gzoom(
-    int window_id,
-    int src_x,
-    int src_y,
-    int src_width,
-    int src_height,
-    int dst_width,
-    int dst_height,
-    bool blend)
+
+
+void line(int x1, int y1, int x2, int y2, const snail::color& color)
 {
-    if (blend)
-    {
-        detail::set_blend_mode();
-        snail::detail::enforce_sdl(::SDL_SetTextureAlphaMod(
-            detail::tex_buffers[window_id].texture,
-            detail::current_tex_buffer().color.a));
-    }
-    else
-    {
-        application::instance().get_renderer().set_blend_mode(
-            blend_mode_t::none);
-        snail::detail::enforce_sdl(::SDL_SetTextureAlphaMod(
-            detail::tex_buffers[window_id].texture, 255));
-    }
-
-    auto tmp_buffer = detail::get_tmp_buffer(dst_width, dst_height);
-
-    if (window_id == detail::current_buffer)
-    {
-        application::instance().get_renderer().set_render_target(
-            tmp_buffer);
-        if (window_id < 10)
-        {
-            application::instance().get_renderer().set_blend_mode(
-                blend_mode_t::none);
-            application::instance().get_renderer().set_draw_color(
-                {0, 0, 0, 0});
-        }
-        else
-        {
-            const auto save =
-                application::instance().get_renderer().blend_mode();
-            application::instance().get_renderer().set_blend_mode(
-                blend_mode_t::none);
-            application::instance().get_renderer().set_draw_color(
-                {0, 0, 0, 0});
-            application::instance().get_renderer().set_blend_mode(save);
-        }
-        application::instance().get_renderer().clear();
-        application::instance().get_renderer().render_image(
-            detail::tex_buffers[window_id].texture,
-            src_x,
-            src_y,
-            src_width,
-            src_height,
-            0,
-            0,
-            dst_width,
-            dst_height);
-        gsel(window_id);
-        application::instance().get_renderer().render_image(
-            tmp_buffer,
-            0,
-            0,
-            dst_width,
-            dst_height,
-            detail::current_tex_buffer().x,
-            detail::current_tex_buffer().y);
-        return;
-    }
-
-    application::instance().get_renderer().render_image(
-        detail::tex_buffers[window_id].texture,
-        src_x,
-        src_y,
-        src_width,
-        src_height,
-        detail::current_tex_buffer().x,
-        detail::current_tex_buffer().y,
-        dst_width,
-        dst_height);
+    auto&& renderer = snail::application::instance().get_renderer();
+    renderer.set_draw_color(color);
+    renderer.render_line(x1, y1, x2, y2);
+    renderer.set_draw_color({0, 0, 0});
 }
 
-void line(int x1, int y1, int x2, int y2)
+
+
+static void title_android(const std::string& display_mode)
 {
-    snail::application::instance().get_renderer().render_line(x1, y1, x2, y2);
+    application::instance().set_display_mode(
+        application::instance().get_default_display_mode());
+    application::instance().set_fullscreen_mode(
+        window::fullscreen_mode_t::fullscreen);
+    application::instance().set_subwindow_display_mode(display_mode);
 }
 
-void line(int x, int y)
-{
-    line(detail::current_tex_buffer().x, detail::current_tex_buffer().y, x, y);
-    detail::current_tex_buffer().x = x;
-    detail::current_tex_buffer().y = y;
-}
 
-void title(const std::string& title_str,
-           const std::string& display_mode,
-           window::fullscreen_mode_t fullscreen_mode)
+
+void title(
+    const std::string& title_str,
+    const std::string& display_mode,
+    window::fullscreen_mode_t fullscreen_mode)
 {
     application::instance().initialize(title_str);
 
-    if (display_mode != "")
+    if (application::is_android)
     {
-        application::instance().set_display_mode(display_mode);
+        title_android(display_mode);
     }
-    application::instance().set_fullscreen_mode(fullscreen_mode);
+    else if (display_mode != "__unknown__")
+    {
+        if (display_mode != "")
+        {
+            application::instance().set_display_mode(display_mode);
+        }
+        application::instance().set_fullscreen_mode(fullscreen_mode);
+    }
 
-    detail::setup_tmp_buffers();
+    detail::setup_buffers();
     application::instance().register_finalizer(
         [&]() { font_detail::font_cache.clear(); });
-    buffer(0, application::instance().width(), application::instance().height());
+    buffer(
+        0, application::instance().width(), application::instance().height());
 }
 
 } // namespace hsp
 } // namespace snail
 } // namespace elona
-

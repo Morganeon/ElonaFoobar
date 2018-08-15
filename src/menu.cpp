@@ -1,4 +1,5 @@
 #include "menu.hpp"
+#include <iostream>
 #include "ability.hpp"
 #include "audio.hpp"
 #include "calc.hpp"
@@ -7,13 +8,14 @@
 #include "class.hpp"
 #include "command.hpp"
 #include "config.hpp"
+#include "db_item.hpp"
+#include "defines.hpp"
 #include "draw.hpp"
 #include "enchantment.hpp"
 #include "equipment.hpp"
 #include "i18n.hpp"
 #include "input.hpp"
 #include "item.hpp"
-#include "item_db.hpp"
 #include "macro.hpp"
 #include "menu.hpp"
 #include "network.hpp"
@@ -23,6 +25,14 @@
 #include "ui.hpp"
 #include "variables.hpp"
 
+#include "ui/ui_menu_adventurers.hpp"
+#include "ui/ui_menu_alias.hpp"
+#include "ui/ui_menu_book.hpp"
+#include "ui/ui_menu_ctrl_ally.hpp"
+#include "ui/ui_menu_god.hpp"
+#include "ui/ui_menu_item_desc.hpp"
+#include "ui/ui_menu_npc_tone.hpp"
+
 namespace elona
 {
 
@@ -30,31 +40,18 @@ std::string strhint6;
 
 void text_set()
 {
-    if (jp)
-    {
-        strhint1 = u8"ｶｰｿﾙ [選択]  "s;
-        strhint2 =
-            ""s + key_pageup + u8","s + key_pagedown + u8" [ページ切替]  "s;
-        strhint3 = u8"Shift,Esc [閉じる]  "s;
-        strhint3b = u8"Shift,Esc [戻る]  "s;
-        strhint4 = u8"決定、"s;
-        strhint5 = ""s + key_identify + u8" [既知の情報]  "s;
-        strhint5b = ""s + key_mode + u8" [情報切替]  "s;
-        strhint6 = u8"p [ポートレイト変更]  "s;
-        strhint7 = u8"0〜9 [ショートカット]  "s;
-    }
-    else
-    {
-        strhint1 = u8"Cursor [Select]  "s;
-        strhint2 = ""s + key_pageup + u8","s + key_pagedown + u8" [Page]  "s;
-        strhint3 = u8"Shift,Esc [Close]  "s;
-        strhint3b = u8"Shift,Esc [Back]  "s;
-        strhint4 = u8"Enter,"s;
-        strhint5 = ""s + key_identify + u8" [Known info]  "s;
-        strhint5b = ""s + key_mode + u8" [Mode]  "s;
-        strhint6 = u8"p [Portrait]  "s;
-        strhint7 = u8"0~9 [Shortcut]  "s;
-    }
+    strhint1 = i18n::s.get("core.locale.ui.hint.cursor");
+    strhint2 = ""s + key_pageup + u8","s + key_pagedown
+        + i18n::s.get("core.locale.ui.hint.page");
+    strhint3 = i18n::s.get("core.locale.ui.hint.close");
+    strhint3b = i18n::s.get("core.locale.ui.hint.back");
+    strhint4 = i18n::s.get("core.locale.ui.hint.enter");
+    strhint5 =
+        ""s + key_identify + i18n::s.get("core.locale.ui.hint.known_info");
+    strhint5b = ""s + key_mode + i18n::s.get("core.locale.ui.hint.mode");
+    strhint6 = i18n::s.get("core.locale.ui.hint.portrait");
+    strhint7 = i18n::s.get("core.locale.ui.hint.shortcut");
+
     SDIM4(_melee, 20, 3, 8);
     if (jp)
     {
@@ -159,6 +156,22 @@ void text_set()
 
 void show_quick_menu()
 {
+    int tx, ty;
+
+    // On Android, draw the menu in the center of the screen.
+    // Otherwise, it would be obscured by the keypad in landscape
+    // mode.
+    if (defines::is_android)
+    {
+        tx = (windoww / 2) - 100;
+        ty = (windowh / 2) - 100;
+    }
+    else
+    {
+        tx = 50;
+        ty = windowh - 255;
+    }
+
     page = quickpage;
     listmax = 0;
     snd(5);
@@ -180,15 +193,15 @@ label_2698:
         listn(1, listmax) = u8"aaa"s;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"ヘルプ"s, u8"Help"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.help");
         listn(1, listmax) = key_help;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"ログ"s, u8"Log"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.log");
         listn(1, listmax) = key_msglog;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"シート"s, u8"Chara"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.chara");
         listn(1, listmax) = key_charainfo;
         ++listmax;
         list(0, listmax) = listmax;
@@ -196,7 +209,7 @@ label_2698:
         listn(1, listmax) = u8"aaa"s;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"日誌"s, u8"Journal"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.journal");
         listn(1, listmax) = key_journal;
         ++listmax;
         list(0, listmax) = listmax;
@@ -219,15 +232,15 @@ label_2698:
         listn(1, listmax) = u8"aaa"s;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"装備"s, u8"Wear"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.wear");
         listn(1, listmax) = key_wear;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"休息"s, u8"Rest"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.rest");
         listn(1, listmax) = key_rest;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"魔法"s, u8"Spell"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.spell");
         listn(1, listmax) = key_cast;
         ++listmax;
         list(0, listmax) = listmax;
@@ -235,15 +248,15 @@ label_2698:
         listn(1, listmax) = u8"aaa"s;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"技能"s, u8"Skill"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.skill");
         listn(1, listmax) = key_skill;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"射撃"s, u8"Fire"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.fire");
         listn(1, listmax) = key_fire;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"掘る"s, u8"Dig"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.dig");
         listn(1, listmax) = key_dig;
         ++listmax;
         list(0, listmax) = listmax;
@@ -258,15 +271,15 @@ label_2698:
         listn(1, listmax) = u8"aaa"s;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"祈る"s, u8"Pray"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.pray");
         listn(1, listmax) = key_pray;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"装填"s, u8"Ammo"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.ammo");
         listn(1, listmax) = key_ammo;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"干渉"s, u8"Interact"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.interact");
         listn(1, listmax) = key_interact;
         ++listmax;
         list(0, listmax) = listmax;
@@ -274,7 +287,7 @@ label_2698:
         listn(1, listmax) = u8"aaa"s;
         ++listmax;
         list(0, listmax) = listmax;
-        listn(0, listmax) = lang(u8"体当り"s, u8"Bash"s);
+        listn(0, listmax) = i18n::s.get("core.locale.ui.quick_menu.bash");
         listn(1, listmax) = key_bash;
         ++listmax;
         list(0, listmax) = listmax;
@@ -290,9 +303,9 @@ label_2698:
         listn(1, listmax) = u8"aaa"s;
         ++listmax;
     }
-    s(0) = lang(u8"情報"s, u8"Info"s);
-    s(1) = lang(u8"行動"s, u8"Action"s);
-    s(2) = lang(u8"特殊"s, u8"Etc"s);
+    s(0) = i18n::s.get("core.locale.ui.quick_menu.info");
+    s(1) = i18n::s.get("core.locale.ui.quick_menu.action");
+    s(2) = i18n::s.get("core.locale.ui.quick_menu.etc");
     s(3) = u8"null"s;
     p = page - 1;
     if (p == -1)
@@ -310,8 +323,6 @@ label_2698:
     t = 0;
 label_2699_internal:
     font(12 + sizefix - en * 2);
-    tx = 50;
-    ty = windowh - 255;
     x(0) = 25;
     x(1) = 50;
     x(2) = 50;
@@ -339,41 +350,35 @@ label_2699_internal:
         {
             continue;
         }
-        pos(x(cnt) + tx, y(cnt) + ty);
         if (cnt == 0 || cnt == 4 || cnt == 8)
         {
-            gcopy(3, 360, 192, 48, 48);
+            draw("quickmenu_submenu", x(cnt) + tx, y(cnt) + ty);
         }
         else
         {
-            gcopy(3, 360, 144, 48, 48);
+            draw("quickmenu_action", x(cnt) + tx, y(cnt) + ty);
         }
-        gmode(
-            5 - 1,
-            -1,
-            (t + cnt) % 10 * (t + cnt) % 10 * 12 * ((t + cnt) % 50 < 10));
+        gmode(4, (t + cnt) % 10 * (t + cnt) % 10 * 12 * ((t + cnt) % 50 < 10));
         if (cs == cnt)
         {
-            gmode(5, -1, -1, 140);
+            gmode(5, 140);
         }
-        pos(x(cnt) + tx, y(cnt) + ty);
         if (cnt == 0 || cnt == 4 || cnt == 8)
         {
-            gcopy(3, 360, 192, 48, 48);
+            draw("quickmenu_submenu", x(cnt) + tx, y(cnt) + ty);
         }
         else
         {
-            gcopy(3, 360, 144, 48, 48);
+            draw("quickmenu_action", x(cnt) + tx, y(cnt) + ty);
         }
         gmode(2);
         s = listn(0, p);
-        pos(x(cnt) + tx + 25 - strlen_u(s) * 3, y(cnt) + ty + 19);
-        bmes(s, 255, 255, 255);
+        bmes(s, x(cnt) + tx + 25 - strlen_u(s) * 3, y(cnt) + ty + 19);
     }
     ++t;
     redraw();
     await(config::instance().wait1);
-    key_check(2);
+    key_check(key_wait_delay_t::none);
     if (key == key_north)
     {
         key = listn(1, 3);
@@ -522,14 +527,12 @@ void show_ex_help()
         pos(wx + 10, wy + 42);
         gcopy(3, 960, 144, 96, 120);
         font(16 - en * 2, snail::font_t::style_t::bold);
-        pos(wx + 142, wy + 13);
-        color(80, 60, 50);
         bmes(
-            lang(u8"- ノルンの冒険ガイド -"s, u8"- Norne's travel guide -"s),
-            255,
-            245,
-            235);
-        color(0, 0, 0);
+            i18n::s.get("core.locale.ui.exhelp.title"),
+            wx + 142,
+            wy + 13,
+            {255, 245, 235},
+            {80, 60, 50});
         tx = wx + 120;
         ty = wy + 55;
         font(15 - en * 2);
@@ -561,7 +564,7 @@ void show_ex_help()
     return;
 }
 
-void label_2702()
+void help_window_remove_parens()
 {
     if (jp)
     {
@@ -616,7 +619,7 @@ void show_game_help()
         }
     }
     list(0, 0) = 0;
-    listn(0, 0) = lang(u8"キーの一覧"s, u8"Key List"s);
+    listn(0, 0) = i18n::s.get("core.locale.ui.manual.keys.list");
     ++listmax;
     for (int cnt = 0, cnt_end = (noteinfo()); cnt < cnt_end; ++cnt)
     {
@@ -654,7 +657,7 @@ label_2705_internal:
         display_window(
             (windoww - 780) / 2 + inf_screenx, winposy(496) - 24, 780, 496);
     }
-    display_topic(lang(u8"項目"s, u8"Topic"s), wx + 34, wy + 36);
+    display_topic(i18n::s.get("core.locale.ui.manual.topic"), wx + 34, wy + 36);
     if (mode == 1)
     {
         p = 2;
@@ -666,9 +669,9 @@ label_2705_internal:
     cmbg = page % 5;
     x = ww / 5 * 2;
     y = wh - 80;
-    gmode(4, 180, 300, 50);
     pos(wx + ww / 4, wy + wh / 2);
-    grotate(p, cmbg % 4 * 180, cmbg / 4 % 2 * 300, 0, x, y);
+    gmode(4, 50);
+    gcopy_c(p, cmbg % 4 * 180, cmbg / 4 % 2 * 300, 180, 300, x, y);
     gmode(2);
     keyrange = 0;
     for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
@@ -687,40 +690,46 @@ label_2705_internal:
         x = wx + 188;
         y = wy + 6;
         display_topic(
-            lang(u8"アイテムに関するキー"s, u8"Item Keys"s), x + 18, y + 30);
+            i18n::s.get("core.locale.ui.manual.keys.item.title"),
+            x + 18,
+            y + 30);
         display_topic(
-            lang(u8"行動に関するキー"s, u8"Action Keys"s), x + 18, y + 142);
+            i18n::s.get("core.locale.ui.manual.keys.action.title"),
+            x + 18,
+            y + 142);
         display_topic(
-            lang(u8"情報に関するキー"s, u8"Information Keys"s),
+            i18n::s.get("core.locale.ui.manual.keys.info.title"),
             x + 18,
             y + 256);
         display_topic(
-            lang(u8"その他のキー"s, u8"Other Keys"s), x + 18, y + 328);
-        s(0) = u8"アイテムを取る(get)"s;
+            i18n::s.get("core.locale.ui.manual.keys.other.title"),
+            x + 18,
+            y + 328);
+        s(0) = i18n::s.get("core.locale.ui.manual.keys.item.get");
         s(1) = key_get;
-        s(2) = u8"アイテムを置く(drop)"s;
+        s(2) = i18n::s.get("core.locale.ui.manual.keys.item.drop");
         s(3) = key_drop;
-        s(4) = u8"アイテムを調べる(examine)"s;
+        s(4) = i18n::s.get("core.locale.ui.manual.keys.item.examine");
         s(5) = key_inventory;
-        s(6) = u8"装備する(wear,wield)"s;
+        s(6) = i18n::s.get("core.locale.ui.manual.keys.item.wear_wield");
         s(7) = key_wear;
-        s(8) = u8"食べる(eat)"s;
+        s(8) = i18n::s.get("core.locale.ui.manual.keys.item.eat");
         s(9) = key_eat;
-        s(10) = u8"飲む(quaff)"s;
+        s(10) = i18n::s.get("core.locale.ui.manual.keys.item.quaff");
         s(11) = key_drink;
-        s(12) = u8"読む(read)"s;
+        s(12) = i18n::s.get("core.locale.ui.manual.keys.item.read");
         s(13) = key_read;
-        s(14) = u8"振る(zap)"s;
+        s(14) = i18n::s.get("core.locale.ui.manual.keys.item.zap");
         s(15) = key_zap;
-        s(16) = u8"道具を使う(tool)"s;
+        s(16) = i18n::s.get("core.locale.ui.manual.keys.item.tool");
         s(17) = key_use;
-        s(18) = u8"調合(blend)"s;
+        s(18) = i18n::s.get("core.locale.ui.manual.keys.item.blend");
         s(19) = key_dip;
-        s(20) = u8"投げる(throw)"s;
+        s(20) = i18n::s.get("core.locale.ui.manual.keys.item.throw");
         s(21) = key_throw;
-        s(22) = u8"装填(ammo)"s;
+        s(22) = i18n::s.get("core.locale.ui.manual.keys.item.ammo");
         s(23) = key_ammo;
-        label_2702();
+        help_window_remove_parens();
         for (int cnt = 0; cnt < 12; ++cnt)
         {
             font(13 - en * 2);
@@ -730,33 +739,33 @@ label_2705_internal:
             pos(x + 248 + cnt / 6 * 290, y + 57 + cnt % 6 * 14);
             mes(s(cnt * 2 + 1));
         }
-        s(0) = u8"周囲を調べる(search)"s;
+        s(0) = i18n::s.get("core.locale.ui.manual.keys.action.search");
         s(1) = key_search;
-        s(2) = u8"魔法を唱える(cast)"s;
+        s(2) = i18n::s.get("core.locale.ui.manual.keys.action.cast");
         s(3) = key_cast;
-        s(4) = u8"干渉する(interact)"s;
+        s(4) = i18n::s.get("core.locale.ui.manual.keys.action.interact");
         s(5) = key_interact;
-        s(6) = u8"階段を降りる,入る(go down)"s;
+        s(6) = i18n::s.get("core.locale.ui.manual.keys.action.go_down");
         s(7) = key_godown;
-        s(8) = u8"階段を昇る(go up)"s;
+        s(8) = i18n::s.get("core.locale.ui.manual.keys.action.go_up");
         s(9) = key_goup;
-        s(10) = u8"その場で待機(wait)"s;
+        s(10) = i18n::s.get("core.locale.ui.manual.keys.action.wait");
         s(11) = key_wait;
-        s(12) = u8"ターゲットを指定(target)"s;
+        s(12) = i18n::s.get("core.locale.ui.manual.keys.action.target");
         s(13) = key_target;
-        s(14) = u8"射撃する(fire)"s;
+        s(14) = i18n::s.get("core.locale.ui.manual.keys.action.fire");
         s(15) = key_fire;
-        s(16) = u8"能力を使う(apply)"s;
+        s(16) = i18n::s.get("core.locale.ui.manual.keys.action.apply");
         s(17) = key_skill;
-        s(18) = u8"体当たりする(bash)"s;
+        s(18) = i18n::s.get("core.locale.ui.manual.keys.action.bash");
         s(19) = key_bash;
-        s(20) = u8"穴を掘る(dig)"s;
+        s(20) = i18n::s.get("core.locale.ui.manual.keys.action.dig");
         s(21) = key_dig;
-        s(22) = u8"鍵を開ける(open)"s;
+        s(22) = i18n::s.get("core.locale.ui.manual.keys.action.open");
         s(23) = key_open;
         s(24) = "";
         s(25) = "";
-        label_2702();
+        help_window_remove_parens();
         for (int cnt = 0; cnt < 12; ++cnt)
         {
             font(13 - en * 2);
@@ -766,19 +775,19 @@ label_2705_internal:
             pos(x + 248 + cnt / 6 * 290, y + 169 + cnt % 6 * 14);
             mes(s(cnt * 2 + 1));
         }
-        s(0) = u8"能力・スキル情報(chara)"s;
+        s(0) = i18n::s.get("core.locale.ui.manual.keys.info.chara");
         s(1) = key_charainfo;
-        s(2) = u8"冒険日誌を表示(journal)"s;
+        s(2) = i18n::s.get("core.locale.ui.manual.keys.info.journal");
         s(3) = key_journal;
-        s(4) = u8"ヘルプを表示(help)"s;
+        s(4) = i18n::s.get("core.locale.ui.manual.keys.info.help");
         s(5) = key_help;
-        s(6) = u8"メッセージログを表示(log)"s;
+        s(6) = i18n::s.get("core.locale.ui.manual.keys.info.log");
         s(7) = key_msglog;
-        s(8) = u8"マテリアル表示(material)"s;
+        s(8) = i18n::s.get("core.locale.ui.manual.keys.info.material");
         s(9) = key_material;
-        s(10) = u8"特徴の表示(feat)"s;
+        s(10) = i18n::s.get("core.locale.ui.manual.keys.info.feat");
         s(11) = key_trait;
-        label_2702();
+        help_window_remove_parens();
         for (int cnt = 0; cnt < 6; ++cnt)
         {
             font(13 - en * 2);
@@ -788,20 +797,20 @@ label_2705_internal:
             pos(x + 248 + cnt / 3 * 290, y + 283 + cnt % 3 * 14);
             mes(s(cnt * 2 + 1));
         }
-        s(0) = u8"セーブして終了(save)"s;
+        s(0) = i18n::s.get("core.locale.ui.manual.keys.other.save");
         s(1) = key_save;
-        s(2) = u8"神に祈る(pray)"s;
+        s(2) = i18n::s.get("core.locale.ui.manual.keys.other.pray");
         s(3) = key_pray;
-        s(4) = u8"神に捧げる(offer)"s;
+        s(4) = i18n::s.get("core.locale.ui.manual.keys.other.offer");
         s(5) = key_offer;
-        s(6) = u8"ドアを閉める(close)"s;
+        s(6) = i18n::s.get("core.locale.ui.manual.keys.other.close");
         s(7) = key_close;
-        s(8) = u8"与える(give)"s;
+        s(8) = i18n::s.get("core.locale.ui.manual.keys.other.give");
         s(9) = key_give;
         s(10) = "";
         s(11) = "";
         s(12) = "";
-        label_2702();
+        help_window_remove_parens();
         for (int cnt = 0; cnt < 6; ++cnt)
         {
             font(13 - en * 2);
@@ -813,9 +822,12 @@ label_2705_internal:
         }
         font(13 - en * 2);
         pos(x + 38, y + 408);
-        mes(lang(
-            u8"F9 インタフェース非表示  F11 キャラ情報の出力  F12 コンソールの表示"s,
-            u8"F9 Hide interface  F11 Export chara sheet  F12 Console"s));
+        mes(u8"F9 "s
+            + i18n::s.get("core.locale.ui.manual.keys.other.hide_interface")
+            + u8"F11  "
+            + i18n::s.get("core.locale.ui.manual.keys.other.export_chara_sheet")
+            + u8"F12  "
+            + i18n::s.get("core.locale.ui.manual.keys.other.console"));
     }
     else
     {
@@ -911,8 +923,8 @@ turn_result_t show_chat_history()
     wh = 440;
     wx = (windoww - ww) / 2 + inf_screenx;
     wy = winposy(wh);
-    windowanime(wx, wy, ww, wh, 10, 4);
-    s = lang(u8"何かキーを押すと閉じる"s, u8"Hit any key to close"s);
+    window_animation(wx, wy, ww, wh, 9, 4);
+    s = i18n::s.get("core.locale.ui.message.hit_any_key");
     showscroll(s, wx, wy, ww, wh);
     net_read();
     buff = "";
@@ -1034,13 +1046,9 @@ turn_result_t show_message_log()
     wh(1) = 1;
     wh(2) = -1;
     snd(93);
-    showtitle(
-        lang(u8"過去のメッセージ"s, u8"Log"s),
-        lang(u8"何かキーを押すと閉じる"s, u8"Hit any key to close"s),
-        236,
-        1);
+    show_title(i18n::s.get("core.locale.ui.message.hit_any_key"));
     drawmenu(2);
-    windowanimecorner(wx, wy, ww, wh, 8, 4);
+    window_animation_corner(wx, wy, ww, wh, 8, 4);
 
     p = (windoww - inf_msgx) / 192;
     window2(wx, wy, ww, wh, 1, -1);
@@ -1155,13 +1163,7 @@ label_2711_internal:
     goto label_2711_internal;
 }
 
-void initialize_jkey()
-{
-    SDIM3(jkey, 2, 12);
-    return;
-}
-
-void label_2720()
+void load_showroom_user_info()
 {
     notesel(headtemp);
     noteget(s, 1);
@@ -1230,8 +1232,7 @@ turn_result_t play_scene()
             }
         }
     }
-    txt(lang(
-        u8"どのシーンを再生する？"s, u8"Which scene do you want to replay?"s));
+    txt(i18n::s.get("core.locale.ui.scene.which"));
 label_2728_internal:
     cs_bk = -1;
     pagemax = (listmax - 1) / pagesize;
@@ -1250,9 +1251,9 @@ label_2729_internal:
     gcopy(4, 0, 0, 736, 448);
     x = 240;
     y = 320;
-    gmode(4, 180, 300, 100);
     pos(wx + 190, wy + 220);
-    grotate(7, 0, 0, 0, x, y);
+    gmode(4, 100);
+    gcopy_c(7, 0, 0, 180, 300, x, y);
     gmode(2);
     keyrange = 0;
     for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
@@ -1273,9 +1274,7 @@ label_2729_internal:
     mes(u8"Elona - Scene playback"s);
     font(12 - en * 2);
     pos(wx + 390, wy + 50);
-    mes(lang(
-        u8"アンロックされたシーンを再生できます。\nシーンNoは連続していません。"s,
-        u8"You can play the unlocked scenes."s));
+    mes(i18n::s.get("core.locale.ui.scene.you_can_play"));
     font(14 - en * 2);
     cs_listbk();
     for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
@@ -1288,7 +1287,7 @@ label_2729_internal:
         i = list(0, p);
         cs_list(
             cs == cnt,
-            lang(u8"シーン No."s, u8"Scene No. "s) + i,
+            i18n::s.get("core.locale.ui.scene.scene_no") + i,
             wx + 424,
             wy + 91 + cnt * 22 - 1);
     }
@@ -1316,7 +1315,7 @@ label_2729_internal:
         screenupdate = -1;
         update_entire_screen();
         txtnew();
-        txt(lang(u8"シーンの再生を終えた。"s, u8"The scene has been played."s));
+        txt(i18n::s.get("core.locale.ui.scene.has_been_played"));
         return turn_result_t::play_scene;
     }
     if (key == key_pageup)
@@ -1386,15 +1385,18 @@ label_2028_internal:
     }
     drawmenu(1);
 label_2029_internal:
-    s(0) = lang(u8"魔法の詠唱"s, u8"Spell"s);
+    s(0) = i18n::s.get("core.locale.ui.spell.title");
     s(1) = strhint2 + strhint3 + strhint7;
     display_window((windoww - 720) / 2 + inf_screenx, winposy(438), 720, 438);
-    display_topic(lang(u8"魔法の名称"s, u8"Name"s), wx + 28, wy + 36);
+    display_topic(i18n::s.get("core.locale.ui.spell.name"), wx + 28, wy + 36);
     display_topic(
-        lang(u8"消費MP(ｽﾄｯｸ) Lv/成功"s, u8"Cost(Stock) Lv/Chance"s),
+        i18n::s.get("core.locale.ui.spell.cost") + "("
+            + i18n::s.get("core.locale.ui.spell.stock") + ")" + " "
+            + i18n::s.get("core.locale.ui.spell.lv_chance"),
         wx + 220,
         wy + 36);
-    display_topic(lang(u8"効果"s, u8"Effect"s), wx + 400, wy + 36);
+    display_topic(
+        i18n::s.get("core.locale.ui.spell.effect"), wx + 400, wy + 36);
     pos(wx + 46, wy - 16);
     gcopy(3, 912, 48, 48, 48);
     pos(wx + ww - 78, wy);
@@ -1413,9 +1415,7 @@ label_2029_internal:
         ++keyrange;
         if (cnt % 2 == 0)
         {
-            pos(wx + 70, wy + 66 + cnt * 19);
-            gfini(620, 18);
-            gfdec2(12, 14, 16);
+            boxf(wx + 70, wy + 66 + cnt * 19, 620, 18, {12, 14, 16, 16});
         }
         display_key(wx + 58, wy + 66 + cnt * 19 - 2, cnt);
     }
@@ -1430,12 +1430,11 @@ label_2029_internal:
         }
         i = list(0, p);
         pos(wx + 40, wy + 74 + cnt * 19);
-        gmode(2, inf_tiles, inf_tiles);
-        grotate(
+        gmode(2);
+        gcopy_c(
             1,
             (the_ability_db[i]->related_basic_attribute - 10) * inf_tiles,
             672,
-            0,
             inf_tiles,
             inf_tiles);
         s = "";
@@ -1454,7 +1453,7 @@ label_2029_internal:
         s = ""s + calcspellcostmp(i, cc) + u8" ("s + spell((i - 400)) + u8")"s;
         pos(wx + 328 - strlen_u(s) * 7, wy + 66 + cnt * 19 + 2);
         mes(s);
-        label_2031();
+        draw_spell_power_entry();
         s = strmid(s, 0, 40);
         pos(wx + 340, wy + 66 + cnt * 19 + 2);
         mes(""s + sdata(i, cc) + u8"/"s + calcspellfail(i, cc) + u8"%"s);
@@ -1616,13 +1615,14 @@ label_2008_internal:
     }
     drawmenu(1);
 label_2009_internal:
-    s(0) = lang(u8"能力の発動"s, u8"Skill"s);
+    s(0) = i18n::s.get("core.locale.ui.skill.title");
     s(1) = strhint2 + strhint3 + strhint7;
     display_window(
         (windoww - 600) / 2 + inf_screenx, winposy(438), 600, 438, 0, 60);
-    display_topic(lang(u8"能力の名称"s, u8"Name"s), wx + 28, wy + 36);
-    display_topic(lang(u8"コスト"s, u8"Cost"s), wx + 220, wy + 36);
-    display_topic(lang(u8"能力の効果"s, u8"Detail"s), wx + 320, wy + 36);
+    display_topic(i18n::s.get("core.locale.ui.skill.name"), wx + 28, wy + 36);
+    display_topic(i18n::s.get("core.locale.ui.skill.cost"), wx + 220, wy + 36);
+    display_topic(
+        i18n::s.get("core.locale.ui.skill.detail"), wx + 320, wy + 36);
     pos(wx + 46, wy - 16);
     gcopy(3, 960, 48, 48, 48);
     pos(wx + ww - 78, wy + wh - 165);
@@ -1641,9 +1641,7 @@ label_2009_internal:
         ++keyrange;
         if (cnt % 2 == 0)
         {
-            pos(wx + 70, wy + 66 + cnt * 19);
-            gfini(490, 18);
-            gfdec2(12, 14, 16);
+            boxf(wx + 70, wy + 66 + cnt * 19, 490, 18, {12, 14, 16, 16});
         }
         display_key(wx + 58, wy + 66 + cnt * 19 - 2, cnt);
     }
@@ -1658,13 +1656,12 @@ label_2009_internal:
         }
         i = list(0, p);
         pos(wx + 40, wy + 74 + cnt * 19);
-        gmode(2, inf_tiles, inf_tiles);
-        grotate(
+        gmode(2);
+        gcopy_c(
             1,
             (the_ability_db[list(0, p)]->related_basic_attribute - 10)
                 * inf_tiles,
             672,
-            0,
             inf_tiles,
             inf_tiles);
         s = "";
@@ -1683,7 +1680,7 @@ label_2009_internal:
         s = ""s + the_ability_db[list(0, p)]->cost + u8" Sp"s;
         pos(wx + 288 - strlen_u(s) * 7, wy + 66 + cnt * 19 + 2);
         mes(s);
-        label_2031();
+        draw_spell_power_entry();
         pos(wx + 325, wy + 66 + cnt * 19 + 2);
         mes(strmid(s, 0, 34));
     }
@@ -1794,7 +1791,7 @@ label_2009_internal:
 
 
 
-void label_2031()
+void draw_spell_power_entry()
 {
     s = "";
     if (the_ability_db[i]->sdataref1 / 1000 == 1)
@@ -1802,7 +1799,8 @@ void label_2031()
         p = the_ability_db[i]->sdataref1 % 1000;
         const auto duration = calc_buff_duration(p, calcspellpower(i, cc));
         const auto description = get_buff_description(p, calcspellpower(i, cc));
-        s = ""s + duration + lang(u8"ﾀｰﾝ "s, u8"t "s) + description;
+        s = ""s + duration + i18n::s.get("core.locale.ui.spell.turn_counter")
+            + description;
         return;
     }
     const auto damage = calc_skill_damage(i, cc, calcspellpower(i, cc));
@@ -1844,7 +1842,7 @@ void label_2031()
         }
         else
         {
-            s += lang(u8"ﾊﾟﾜｰ"s, u8"Power:"s) + bonus;
+            s += i18n::s.get("core.locale.ui.spell.power") + bonus;
         }
         s += u8" "s;
     }
@@ -1852,14 +1850,14 @@ void label_2031()
     return;
 }
 
-void label_2032()
+void trainer_get_gainable_skills()
 {
     int dbmax = 0;
     dblist(0, dbmax) = 159;
     ++dbmax;
     dblist(0, dbmax) = 173;
     ++dbmax;
-    if (gdata_current_map == 12)
+    if (gdata_current_map == mdata_t::map_id_t::yowyn)
     {
         dblist(0, dbmax) = 154;
         ++dbmax;
@@ -1880,7 +1878,7 @@ void label_2032()
         dblist(0, dbmax) = 153;
         ++dbmax;
     }
-    if (gdata_current_map == 5)
+    if (gdata_current_map == mdata_t::map_id_t::vernis)
     {
         dblist(0, dbmax) = 178;
         ++dbmax;
@@ -1897,7 +1895,7 @@ void label_2032()
         dblist(0, dbmax) = 158;
         ++dbmax;
     }
-    if (gdata_current_map == 15)
+    if (gdata_current_map == mdata_t::map_id_t::palmia)
     {
         dblist(0, dbmax) = 151;
         ++dbmax;
@@ -1918,7 +1916,7 @@ void label_2032()
         dblist(0, dbmax) = 178;
         ++dbmax;
     }
-    if (gdata_current_map == 33)
+    if (gdata_current_map == mdata_t::map_id_t::noyel)
     {
         dblist(0, dbmax) = 181;
         ++dbmax;
@@ -1935,7 +1933,7 @@ void label_2032()
         dblist(0, dbmax) = 153;
         ++dbmax;
     }
-    if (gdata_current_map == 36)
+    if (gdata_current_map == mdata_t::map_id_t::lumiest)
     {
         if (gdata_current_dungeon_level == 1)
         {
@@ -1957,7 +1955,7 @@ void label_2032()
             ++dbmax;
         }
     }
-    if (gdata_current_map == 36)
+    if (gdata_current_map == mdata_t::map_id_t::lumiest)
     {
         if (gdata_current_dungeon_level == 3)
         {
@@ -1979,7 +1977,7 @@ void label_2032()
             ++dbmax;
         }
     }
-    if (gdata_current_map == 14)
+    if (gdata_current_map == mdata_t::map_id_t::derphy)
     {
         if (gdata_current_dungeon_level == 1)
         {
@@ -2001,7 +1999,7 @@ void label_2032()
             ++dbmax;
         }
     }
-    if (gdata_current_map == 14)
+    if (gdata_current_map == mdata_t::map_id_t::derphy)
     {
         if (gdata_current_dungeon_level == 3)
         {
@@ -2017,7 +2015,7 @@ void label_2032()
             ++dbmax;
         }
     }
-    if (gdata_current_map == 11)
+    if (gdata_current_map == mdata_t::map_id_t::port_kapul)
     {
         if (gdata_current_dungeon_level == 1)
         {
@@ -2035,7 +2033,7 @@ void label_2032()
             ++dbmax;
         }
     }
-    if (gdata_current_map == 11)
+    if (gdata_current_map == mdata_t::map_id_t::port_kapul)
     {
         if (gdata_current_dungeon_level == 3)
         {
@@ -2103,11 +2101,12 @@ label_20331:
     }
     list(0, listmax) = -1;
     list(1, listmax) = 20000;
-    listn(0, listmax) = lang(u8"◆ スキルと特殊能力"s, u8"Skill"s);
+    listn(0, listmax) =
+        i18n::s.get("core.locale.ui.chara_sheet.category.skill");
     ++listmax;
     if (csctrl == 3)
     {
-        label_2032();
+        trainer_get_gainable_skills();
     }
     else
     {
@@ -2136,7 +2135,8 @@ label_20331:
     }
     list(0, listmax) = -1;
     list(1, listmax) = 30000;
-    listn(0, listmax) = lang(u8"◆ 武器の専門"s, u8"Weapon Proficiency"s);
+    listn(0, listmax) =
+        i18n::s.get("core.locale.ui.chara_sheet.category.weapon_proficiency");
     ++listmax;
     for (int cnt = 100; cnt < 150; ++cnt)
     {
@@ -2167,7 +2167,8 @@ label_20331:
     {
         list(0, listmax) = -1;
         list(1, listmax) = 40000;
-        listn(0, listmax) = lang(u8"◆ 耐性と抵抗力"s, u8"Resistance"s);
+        listn(0, listmax) =
+            i18n::s.get("core.locale.ui.chara_sheet.category.resistance");
         ++listmax;
         for (int cnt = 50; cnt < 100; ++cnt)
         {
@@ -2188,21 +2189,21 @@ label_20331:
     wy = winposy(400) - 10;
     ww = 700;
     wh = 400;
-    s = lang(u8"キャラクターシート"s, u8"Character Sheet"s);
+    s = i18n::s.get("core.locale.ui.chara_sheet.title.default");
     if (csctrl == 2)
     {
-        s = lang(u8"能力訓練"s, u8"Skill Training"s);
+        s = i18n::s.get("core.locale.ui.chara_sheet.title.training");
     }
     if (csctrl == 3)
     {
-        s = lang(u8"能力の習得"s, u8"Skill Learning"s);
+        s = i18n::s.get("core.locale.ui.chara_sheet.title.learning");
     }
     drawmenu(0);
     if (mode != 1)
     {
         snd(94);
     }
-    windowanime(wx, wy, ww, wh, 10, 4);
+    window_animation(wx, wy, ww, wh, 9, 4);
     gsel(4);
     pos(0, 0);
     picload(filesystem::dir::graphic() / u8"face1.bmp", 1);
@@ -2222,7 +2223,7 @@ label_20331:
     gsel(0);
     if (returnfromportrait == 0)
     {
-        gmode(6, -1, -1, 80);
+        gmode(6, 80);
         pos(wx + 4, wy + 4);
         gcopy(7, 0, 0, 700, 400);
         gmode(2);
@@ -2230,7 +2231,7 @@ label_20331:
     if (csctrl == 2)
     {
         txtnew();
-        txt(lang(u8"どの能力を訓練する？"s, u8"Train which skill?"s));
+        txt(i18n::s.get("core.locale.ui.chara_sheet.train_which_skill"));
     }
     returnfromportrait = 0;
 label_2034_internal:
@@ -2256,20 +2257,19 @@ label_2034_internal:
     {
         if (page == 0)
         {
-            s = lang(u8"ｶｰｿﾙ [祝福と呪いの情報]  "s, u8"Cursor [Hint]  "s)
-                + strhint6 + strhint2 + strhint3;
+            s = i18n::s.get("core.locale.ui.chara_sheet.hint.hint") + strhint6
+                + strhint2 + strhint3;
         }
         else
         {
-            s = lang(u8"決定 [ボーナスの分配]  "s, u8"Enter [Spend Bonus]  "s)
+            s = i18n::s.get("core.locale.ui.chara_sheet.hint.spend_bonus")
                 + strhint2 + strhint3;
         }
     }
     if (csctrl == 1)
     {
-        s = lang(
-            u8"決定ｷｰ [リロール]  "s + strhint6 + u8"Shift,Esc [最終確認]"s,
-            u8"Enter Key [Reroll]  "s + strhint6 + u8"Shift,Esc [Confirm]"s);
+        s = i18n::s.get("core.locale.ui.chara_sheet.hint.reroll") + strhint6
+            + i18n::s.get("core.locale.ui.chara_sheet.hint.confirm");
     }
     if (csctrl == 2)
     {
@@ -2279,7 +2279,7 @@ label_2034_internal:
         }
         else
         {
-            s = lang(u8"決定 [スキルを訓練]  "s, u8"Enter [Train Skill]  "s)
+            s = i18n::s.get("core.locale.ui.chara_sheet.hint.train_skill")
                 + strhint2 + strhint3;
         }
     }
@@ -2291,7 +2291,7 @@ label_2034_internal:
         }
         else
         {
-            s = lang(u8"決定 [スキルを習得]  "s, u8"Enter [Learn Skill]  "s)
+            s = i18n::s.get("core.locale.ui.chara_sheet.hint.learn_skill")
                 + strhint2 + strhint3;
         }
     }
@@ -2299,7 +2299,8 @@ label_2034_internal:
     {
         if (page == 0)
         {
-            s = u8"ｶｰｿﾙ [祝福と呪いの情報] "s + strhint6 + strhint2 + strhint3;
+            s = i18n::s.get("core.locale.ui.chara_sheet.hint.blessing_info")
+                + strhint6 + strhint2 + strhint3;
         }
         else
         {
@@ -2311,22 +2312,21 @@ label_2034_internal:
         if (page != 0)
         {
             s += ""s + key_mode2 + u8" ["s
-                + lang(u8"スキルトラック"s, u8"Track Skill"s) + u8"]"s;
+                + i18n::s.get("core.locale.ui.chara_sheet.hint.track_skill")
+                + u8"]"s;
         }
     }
     color(0, 0, 0);
-    showtitle(s, s, 236, 1);
+    show_title(s);
 label_2035_internal:
     s = "";
     if (csctrl == 0)
     {
         if (page != 0)
         {
-            s = lang(
-                u8"残り "s + cdata[cc].skill_bonus
-                    + u8" のボーナスをスキルに分配できる"s,
-                u8"You can spend "s + cdata[cc].skill_bonus
-                    + u8" bonus points."s);
+            s = i18n::s.get(
+                "core.locale.ui.chara_sheet.you_can_spend_bonus",
+                cdata[cc].skill_bonus);
         }
     }
     display_window2(
@@ -2336,22 +2336,30 @@ label_2035_internal:
         keyrange = 0;
         key_list = key_enter;
         display_topic(
-            lang(
-                u8"能力(元の値)  - 潜在能力"s,
-                u8"Attributes(Org) - Potential"s),
+            i18n::s.get("core.locale.ui.chara_sheet.attributes"),
             wx + 28,
             wy + 122);
         display_topic(
-            lang(u8"各種修正"s, u8"Combat Rolls"s), wx + 400, wy + 253);
-        display_topic(lang(u8"冒険の軌跡"s, u8"Trace"s), wx + 28, wy + 273);
+            i18n::s.get("core.locale.ui.chara_sheet.combat_rolls"),
+            wx + 400,
+            wy + 253);
         display_topic(
-            lang(u8"祝福と呪い"s, u8"Blessing and Hex"s), wx + 400, wy + 122);
-        display_topic(lang(u8"その他"s, u8"Extra Info"s), wx + 220, wy + 273);
+            i18n::s.get("core.locale.ui.chara_sheet.history"),
+            wx + 28,
+            wy + 273);
+        display_topic(
+            i18n::s.get("core.locale.ui.chara_sheet.blessing_and_hex"),
+            wx + 400,
+            wy + 122);
+        display_topic(
+            i18n::s.get("core.locale.ui.chara_sheet.extra_info"),
+            wx + 220,
+            wy + 273);
         if (cdata[cc].portrait >= 0)
         {
             p = cdata[cc].sex * 64 + cdata[cc].portrait;
             pos(wx + 560, wy + 27);
-            gzoom(4, p % 16 * 48, p / 16 * 72, 48, 72, 80, 112);
+            gcopy(4, p % 16 * 48, p / 16 * 72, 48, 72, 80, 112);
         }
         else
         {
@@ -2362,7 +2370,7 @@ label_2035_internal:
                 if (fs::exists(filepath))
                 {
                     pos(wx + 560, wy + 27);
-                    gzoom(4, 0, 0, 80, 112, 80, 112);
+                    gcopy(4, 0, 0, 80, 112, 80, 112);
                 }
             }
         }
@@ -2370,29 +2378,19 @@ label_2035_internal:
         if (cdata[cc].has_own_sprite() == 1)
         {
             pos(wx + 596 + 22, wy + 86 + 24);
-            gmode(2, 32, 48);
-            grotate(10 + cc, 32, 0, 0, 24, 40);
+            gmode(2);
+            gcopy_c(20 + cc, 32, 0, 32, 48, 24, 40);
         }
         else
         {
-            i = cdata[cc].image % 1000;
-            chara_preparepic(cdata[cc].image % 1000, cdata[cc].image / 1000);
-            pos(wx + 596 + 22, wy + 86 + 24);
-            gmode(2, chipc(2, i), chipc(3, i));
-            grotate(
-                5,
-                0,
-                960,
-                0,
-                chipc(2, i) / (1 + (chipc(3, i) > inf_tiles)),
-                inf_tiles);
+            draw_chara_scale_height(cdata[cc], wx + 596 + 22, wy + 86 + 24);
         }
         font(12 + sizefix - en * 2, snail::font_t::style_t::bold);
-        s(0) = lang(u8"レベル"s, u8"Level"s);
-        s(1) = lang(u8"経験"s, u8"EXP"s);
-        s(2) = lang(u8"必要値"s, u8"Next Lv"s);
-        s(3) = lang(u8"信仰"s, u8"God"s);
-        s(4) = lang(u8"所属"s, u8"Guild"s);
+        s(0) = i18n::s.get("core.locale.ui.chara_sheet.exp.level");
+        s(1) = i18n::s.get("core.locale.ui.chara_sheet.exp.exp");
+        s(2) = i18n::s.get("core.locale.ui.chara_sheet.exp.next_level");
+        s(3) = i18n::s.get("core.locale.ui.chara_sheet.exp.god");
+        s(4) = i18n::s.get("core.locale.ui.chara_sheet.exp.guild");
         for (int cnt = 0; cnt < 5; ++cnt)
         {
             pos(wx + 355, wy + 46 + cnt * 15);
@@ -2400,14 +2398,14 @@ label_2035_internal:
             mes(s(cnt));
             color(0, 0, 0);
         }
-        s(0) = lang(u8"名前"s, u8"Name"s);
-        s(1) = lang(u8"異名"s, u8"Aka"s);
-        s(2) = lang(u8"種族"s, u8"Race"s);
-        s(3) = lang(u8"性別"s, u8"Sex"s);
-        s(4) = lang(u8"職業"s, u8"Class"s);
-        s(5) = lang(u8"年齢"s, u8"Age"s);
-        s(6) = lang(u8"身長"s, u8"Height"s);
-        s(7) = lang(u8"体重"s, u8"Weight"s);
+        s(0) = i18n::s.get("core.locale.ui.chara_sheet.personal.name");
+        s(1) = i18n::s.get("core.locale.ui.chara_sheet.personal.aka");
+        s(2) = i18n::s.get("core.locale.ui.chara_sheet.personal.race");
+        s(3) = i18n::s.get("core.locale.ui.chara_sheet.personal.sex");
+        s(4) = i18n::s.get("core.locale.ui.chara_sheet.personal.class");
+        s(5) = i18n::s.get("core.locale.ui.chara_sheet.personal.age");
+        s(6) = i18n::s.get("core.locale.ui.chara_sheet.personal.height");
+        s(7) = i18n::s.get("core.locale.ui.chara_sheet.personal.weight");
         for (int cnt = 0; cnt < 8; ++cnt)
         {
             pos(wx + 30 + cnt / 4 * 190, wy + 61 + cnt % 4 * 15);
@@ -2418,23 +2416,23 @@ label_2035_internal:
         for (int cnt = 0; cnt < 8; ++cnt)
         {
             pos(wx + 37, wy + 157 + cnt * 15);
-            gmode(2, inf_tiles, inf_tiles);
-            grotate(1, cnt * inf_tiles, 672, 0, inf_tiles, inf_tiles);
+            gmode(2);
+            gcopy_c(1, cnt * inf_tiles, 672, inf_tiles, inf_tiles);
             pos(wx + 54, wy + 151 + cnt * 15);
             color(20, 10, 0);
             mes(i18n::_(u8"ui", u8"attribute", u8"_"s + cnt));
             color(0, 0, 0);
         }
-        s(0) = lang(u8"生命力"s, u8"Life"s);
-        s(1) = lang(u8"マナ"s, u8"Mana"s);
-        s(2) = lang(u8"狂気度"s, u8"Sanity"s);
-        s(3) = lang(u8"速度"s, u8"Speed"s);
+        s(0) = i18n::s.get("core.locale.ui.chara_sheet.attribute.life");
+        s(1) = i18n::s.get("core.locale.ui.chara_sheet.attribute.mana");
+        s(2) = i18n::s.get("core.locale.ui.chara_sheet.attribute.sanity");
+        s(3) = i18n::s.get("core.locale.ui.chara_sheet.attribute.speed");
         s(4) = "";
-        s(5) = lang(u8"名声"s, u8"Fame"s);
-        s(6) = lang(u8"カルマ"s, u8"Karma"s);
+        s(5) = i18n::s.get("core.locale.ui.chara_sheet.attribute.fame");
+        s(6) = i18n::s.get("core.locale.ui.chara_sheet.attribute.karma");
         s(7) = "";
-        s(8) = lang(u8"打撃修正"s, u8"Melee"s);
-        s(9) = lang(u8"射撃修正"s, u8"Shoot"s);
+        s(8) = i18n::s.get("core.locale.ui.chara_sheet.attribute.melee");
+        s(9) = i18n::s.get("core.locale.ui.chara_sheet.attribute.shoot");
         s(10) = "";
         s(11) = "";
         s(12) = "";
@@ -2448,10 +2446,10 @@ label_2035_internal:
             mes(s(cnt));
             color(0, 0, 0);
         }
-        s(0) = lang(u8"ターン"s, u8"Turns"s);
-        s(1) = lang(u8"経過日"s, u8"Days"s);
-        s(2) = lang(u8"殺害数"s, u8"Kills"s);
-        s(3) = lang(u8"総時間"s, u8"Time"s);
+        s(0) = i18n::s.get("core.locale.ui.chara_sheet.time.turns");
+        s(1) = i18n::s.get("core.locale.ui.chara_sheet.time.days");
+        s(2) = i18n::s.get("core.locale.ui.chara_sheet.time.kills");
+        s(3) = i18n::s.get("core.locale.ui.chara_sheet.time.time");
         s(4) = "";
         s(5) = "";
         for (int cnt = 0; cnt < 5; ++cnt)
@@ -2461,10 +2459,10 @@ label_2035_internal:
             mes(s(cnt));
             color(0, 0, 0);
         }
-        s(0) = lang(u8"荷車重量"s, u8"Cargo Wt"s);
-        s(1) = lang(u8"荷車限界"s, u8"Cargo Lmt"s);
-        s(2) = lang(u8"装備重量"s, u8"Equip Wt"s);
-        s(3) = lang(u8"最深到達"s, u8"Deepest Lv"s);
+        s(0) = i18n::s.get("core.locale.ui.chara_sheet.weight.cargo_weight");
+        s(1) = i18n::s.get("core.locale.ui.chara_sheet.weight.cargo_limit");
+        s(2) = i18n::s.get("core.locale.ui.chara_sheet.weight.equip_weight");
+        s(3) = i18n::s.get("core.locale.ui.chara_sheet.weight.deepest_level");
         for (int cnt = 0; cnt < 4; ++cnt)
         {
             pos(wx + 224, wy + 301 + cnt * 15);
@@ -2499,7 +2497,8 @@ label_2035_internal:
         {
             s(3) = cnven(i18n::_(u8"ui", u8"female"));
         }
-        s(5) = ""s + calcage(cc) + u8" "s + lang(u8"歳"s, ""s);
+        s(5) = ""s + calcage(cc) + u8" "s
+            + i18n::s.get("core.locale.ui.chara_sheet.personal.age_counter");
         s(6) = ""s + cdata[cc].height + u8" cm"s;
         s(7) = ""s + cdata[cc].weight + u8" kg"s;
         for (int cnt = 0; cnt < 8; ++cnt)
@@ -2582,11 +2581,11 @@ label_2035_internal:
         font(12 + sizefix - en * 2, snail::font_t::style_t::bold);
         color(20, 10, 0);
         pos(wx + 417, wy + 281 + p(2) * 16);
-        mes(lang(u8"軽減"s, u8"Prot"s));
+        mes(i18n::s.get("core.locale.ui.chara_sheet.damage.protect"));
         color(0, 0, 0);
         color(20, 10, 0);
         pos(wx + 590 - en * 16, wy + 281 + p(2) * 16);
-        mes(lang(u8"回避"s, u8"Evade"s));
+        mes(i18n::s.get("core.locale.ui.chara_sheet.damage.evade"));
         color(0, 0, 0);
         attackskill = 106;
         int evade = calc_evasion(tc);
@@ -2598,8 +2597,10 @@ label_2035_internal:
         pos(wx + 625 - en * 8, wy + 279 + p(2) * 16);
         mes(""s + evade + u8"%"s);
         ++p(2);
-        s(0) = ""s + gdata_play_turns + ""s + lang(u8"ターン"s, u8" Turns"s);
-        s(1) = ""s + gdata_play_days + ""s + lang(u8"日"s, u8" Days"s);
+        s(0) = i18n::s.get(
+            "core.locale.ui.chara_sheet.time.turn_counter", gdata_play_turns);
+        s(1) = i18n::s.get(
+            "core.locale.ui.chara_sheet.time.days_counter", gdata_play_days);
         s(2) = ""s + gdata_kill_count;
         s(3) = ""s
             + cnvplaytime(
@@ -2615,8 +2616,9 @@ label_2035_internal:
         s(1) = cnvweight(gdata_current_cart_limit);
         s(2) = cnvweight(cdata[cc].sum_of_equipment_weight) + u8" "s
             + cnveqweight(cc);
-        s(3) = cnvrank(gdata_deepest_dungeon_level)
-            + lang(u8"階相当"s, u8" Level"s);
+        s(3) = i18n::s.get(
+            "core.locale.ui.chara_sheet.weight.level_counter",
+            cnvrank(gdata_deepest_dungeon_level));
         for (int cnt = 0; cnt < 4; ++cnt)
         {
             pos(wx + 287 + en * 14, wy + 299 + cnt * 15);
@@ -2629,9 +2631,8 @@ label_2035_internal:
             y = wy + 151 + cnt % 3 * 32;
             if (cdata[cc].buffs[cnt].id == 0)
             {
-                gmode(4, -1, -1, 120);
-                pos(x, y);
-                gcopy(3, 320, 160, 32, 32);
+                gmode(4, 120);
+                draw("buff_icon_none", x, y);
                 gmode(2);
                 continue;
             }
@@ -2640,9 +2641,7 @@ label_2035_internal:
             gcopy(5, cdata[cc].buffs[cnt].id * 32, 1120, 32, 32);
             if (cs_buff == cnt)
             {
-                pos(x, y);
-                gfini(32, 32);
-                gfinc(20, 20, 50);
+                boxf(x, y, 32, 32, {200, 200, 255, 63});
             }
         }
         if (cs_buffmax != 0)
@@ -2657,16 +2656,13 @@ label_2035_internal:
                       std::to_string(cdata[cc].buffs[cs_buff].id),
                       u8"name")
                 + u8": "s + cdata[cc].buffs[cs_buff].turns
-                + lang(
-                      (u8"("s + duration + u8")ﾀｰﾝの間、"s),
-                      (u8"("s + duration + u8") "s))
+                + i18n::s.get(
+                      "core.locale.ui.chara_sheet.buff.duration", duration)
                 + description;
         }
         else
         {
-            s = lang(
-                u8"今は持続効果を受けていない"s,
-                u8"This character isn't currently blessed or hexed."s);
+            s = i18n::s.get("core.locale.ui.chara_sheet.buff.is_not_currently");
         }
         font(13 - en * 2);
         pos(wx + 108, wy + 366);
@@ -2674,15 +2670,25 @@ label_2035_internal:
         font(11 + sizefix * 2 - en * 2, snail::font_t::style_t::bold);
         color(20, 10, 0);
         pos(wx + 70, wy + 369 - en * 3);
-        mes(lang(u8"説明:"s, u8"Hint:"s));
+        mes(i18n::s.get("core.locale.ui.chara_sheet.buff.hint") + ":");
         color(0, 0, 0);
     }
     else
     {
-        display_topic(lang(u8"能力の名称"s, u8"Name"s), wx + 28, wy + 36);
         display_topic(
-            lang(u8"Lv(潜在)"s, u8"Lv(Potential)"s), wx + 182, wy + 36);
-        display_topic(lang(u8"効果"s, u8"Detail"s), wx + 320, wy + 36);
+            i18n::s.get("core.locale.ui.chara_sheet.skill.name"),
+            wx + 28,
+            wy + 36);
+        display_topic(
+            i18n::s.get("core.locale.ui.chara_sheet.skill.level") + "("
+                + i18n::s.get("core.locale.ui.chara_sheet.skill.potential")
+                + ")",
+            wx + 182,
+            wy + 36);
+        display_topic(
+            i18n::s.get("core.locale.ui.chara_sheet.skill.detail"),
+            wx + 320,
+            wy + 36);
         keyrange = 0;
         p(1) = 0;
         for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
@@ -2712,9 +2718,8 @@ label_2035_internal:
             }
             if (p(1) % 2 == 0)
             {
-                pos(wx + x, wy + 66 + cnt * 19);
-                gfini(595 + dx, 18);
-                gfdec2(12, 14, 16);
+                boxf(
+                    wx + x, wy + 66 + cnt * 19, 595 + dx, 18, {12, 14, 16, 16});
             }
             if (list(0, p) < 100)
             {
@@ -2748,13 +2753,13 @@ label_2035_internal:
                     p(1) = the_ability_db[i]->related_basic_attribute - 10;
                 }
                 pos(wx + 38, wy + 75 + cnt * 19);
-                gmode(2, inf_tiles, inf_tiles);
-                grotate(1, p(1) * inf_tiles, 672, 0, inf_tiles, inf_tiles);
+                gmode(2);
+                gcopy_c(1, p(1) * inf_tiles, 672, inf_tiles, inf_tiles);
                 s = i18n::_(u8"ability", std::to_string(i), u8"name");
                 if (i >= 50 && i < 100)
                 {
-                    s = lang(""s, u8"Resist "s) + cnven(s)
-                        + lang(u8"耐性"s, ""s);
+                    s = i18n::s.get(
+                        "core.locale.ui.chara_sheet.skill.resist", cnven(s));
                 }
                 for (int cnt = 0; cnt < 3; ++cnt)
                 {
@@ -2810,8 +2815,7 @@ label_2035_internal:
                     {
                         i = i / 5;
                     }
-                    s = "";
-                    enchantment_print_level(i);
+                    s = enchantment_print_level(i);
                     pos(wx + 282, wy + 66 + cnt * 19 + 2);
                     mes(s);
                 }
@@ -2930,7 +2934,7 @@ label_2035_internal:
                 result.succeeded = false;
                 return result;
             }
-            if (cdata[0].skill_bonus < 1 || p < 0 || p < 100)
+            if (cdata.player().skill_bonus < 1 || p < 0 || p < 100)
             {
                 goto label_2034_internal;
             }
@@ -2939,11 +2943,11 @@ label_2035_internal:
                 snd(27);
                 goto label_2034_internal;
             }
-            --cdata[0].skill_bonus;
+            --cdata.player().skill_bonus;
             snd(19);
-            skillexp(csskill, cc, 400, 2, 1000);
+            chara_gain_skill_exp(cdata[cc], csskill, 400, 2, 1000);
             modify_potential(
-                cc,
+                cdata[cc],
                 csskill,
                 clamp(15 - sdata.get(csskill, cc).potential / 15, 2, 15));
             render_hud();
@@ -3051,38 +3055,38 @@ menu_result menu_equipment()
     mainhand = 0;
     for (int i = 0; i < 30; ++i)
     {
-        if (cdata_body_part(cc, i) != 0)
+        if (cdata[cc].body_parts[i] != 0)
         {
             if (trait(206) != 0)
             {
-                if (cdata_body_part(cc, i) / 10000 == 2)
+                if (cdata[cc].body_parts[i] / 10000 == 2)
                 {
                     continue;
                 }
             }
             if (trait(203) != 0)
             {
-                if (cdata_body_part(cc, i) / 10000 == 9)
+                if (cdata[cc].body_parts[i] / 10000 == 9)
                 {
                     continue;
                 }
             }
             if (trait(205) != 0)
             {
-                if (cdata_body_part(cc, i) / 10000 == 3)
+                if (cdata[cc].body_parts[i] / 10000 == 3)
                 {
                     continue;
                 }
             }
             if (mainhand == 0)
             {
-                if (cdata_body_part(cc, i) / 10000 == 5)
+                if (cdata[cc].body_parts[i] / 10000 == 5)
                 {
                     mainhand = i + 100;
                 }
             }
             list(0, listmax) = i + 100;
-            list(1, listmax) = cdata_body_part(cc, i) / 10000;
+            list(1, listmax) = cdata[cc].body_parts[i] / 10000;
             ++listmax;
         }
     }
@@ -3096,7 +3100,7 @@ menu_result menu_equipment()
     {
         snd(95);
     }
-    windowanime(wx, wy, ww, wh, 10, 4);
+    window_animation(wx, wy, ww, wh, 9, 4);
     gsel(3);
     pos(960, 96);
     picload(filesystem::dir::graphic() / u8"deco_wear.bmp", 1);
@@ -3114,15 +3118,19 @@ label_2051_internal:
         page = 0;
     }
 label_2052_internal:
-    s(0) = lang(u8"装備品"s, u8"Equipment"s);
+    s(0) = i18n::s.get("core.locale.ui.equip.title");
     s(1) = strhint5 + strhint5b + strhint3;
     display_window(
         (windoww - 690) / 2 + inf_screenx, winposy(428), 690, 428, 64);
     display_topic(
-        lang(u8"部位/装備品名称"s, u8"Category/Name"s), wx + 28, wy + 30);
+        i18n::s.get("core.locale.ui.equip.category") + "/"
+            + i18n::s.get("core.locale.ui.equip.name"),
+        wx + 28,
+        wy + 30);
     if (showresist == 0)
     {
-        display_topic(lang(u8"重さ"s, u8"Weight"s), wx + 524, wy + 30);
+        display_topic(
+            i18n::s.get("core.locale.ui.equip.weight"), wx + 524, wy + 30);
     }
     pos(wx + 46, wy - 16);
     gcopy(3, 768, 48, 48, 48);
@@ -3133,15 +3141,14 @@ label_2052_internal:
     if (showresist)
     {
         pos(wx + 320, wy + 40);
-        mes(lang(
-            u8"火 冷 雷 闇 幻 毒 獄 音 神 沌 魔"s,
-            u8"Fi Co Li Da Mi Po Nt So Nr Ch Ma"s));
+        mes(i18n::s.get("core.locale.ui.equip.resist"));
     }
     display_note(
-        lang(u8"装備重量: "s, u8"Equip weight: "s)
-        + cnvweight(cdata[cc].sum_of_equipment_weight) + cnveqweight(cc)
-        + lang(u8" 命中修正:"s, u8" Hit Bonus:"s) + cdata[cc].hit_bonus
-        + lang(u8" ダメージ修正:"s, u8" Damage Bonus:"s)
+        i18n::s.get("core.locale.ui.equip.equip_weight") + ": "
+        + cnvweight(cdata[cc].sum_of_equipment_weight) + cnveqweight(cc) + " "
+        + i18n::s.get("core.locale.ui.equip.hit_bonus") + ":"
+        + cdata[cc].hit_bonus + " "
+        + i18n::s.get("core.locale.ui.equip.damage_bonus") + ":"
         + cdata[cc].damage_bonus + u8"  DV/PV:"s + cdata[cc].dv + u8"/"s
         + cdata[cc].pv);
     font(12 + sizefix - en * 2, snail::font_t::style_t::bold);
@@ -3159,14 +3166,12 @@ label_2052_internal:
         ++keyrange;
         if (cnt % 2 == 0)
         {
-            pos(wx + 100, wy + 60 + cnt * 19);
-            gfini(558, 18);
-            gfdec(12, 14, 16);
+            boxf(wx + 100, wy + 60 + cnt * 19, 558, 18, {12, 14, 16, 16});
         }
         q = i18n::_(u8"ui", u8"body_part", u8"_"s + list(1, p));
         if (list(0, p) == mainhand)
         {
-            q = lang(u8"利手"s, u8"Hand*"s);
+            q = i18n::s.get("core.locale.ui.equip.main_hand");
         }
         pos(wx + 22, wy + 60 + cnt * 19 - 4);
         gcopy(3, 600 + (list(1, p) - 1) * 24, 336, 24, 24);
@@ -3183,7 +3188,7 @@ label_2052_internal:
             break;
         }
         display_key(wx + 88, wy + 60 + cnt * 19 - 2, cnt);
-        p(1) = cdata_body_part(cc, list(0, p));
+        p(1) = cdata[cc].body_parts[list(0, p) - 100];
         s(0) = u8"-    "s;
         s(1) = u8"-"s;
         if (p(1) % 10000 != 0)
@@ -3191,11 +3196,9 @@ label_2052_internal:
             p(1) = p(1) % 10000 - 1;
             s(0) = itemname(p(1));
             s(1) = cnvweight(inv[p(1)].weight);
-            p(2) = inv[p(1)].image;
-            prepare_item_image(p(2), inv[p(1)].color, inv[p(1)].param1);
-            pos(wx + 126, wy + 70 + cnt * 19);
-            gmode(2, inf_tiles, inf_tiles);
-            grotate(1, 0, 960, 0, chipi(2, p(2)), chipi(3, p(2)));
+
+            draw_item_with_portrait(inv[p(1)], wx + 126, wy + 70 + cnt * 19);
+
             if (showresist)
             {
                 equipinfo(p(1), wx + 320, wy + 60 + cnt * 19 + 2);
@@ -3227,25 +3230,22 @@ label_2052_internal:
     {
         cs_prev = cs;
         body = p;
-        if (cdata_body_part(cc, body) % 10000 != 0)
+        if (cdata[cc].body_parts[body - 100] % 10000 != 0)
         {
             gdata(808) = 1;
-            ci = cdata_body_part(cc, body) % 10000 - 1;
+            ci = cdata[cc].body_parts[body - 100] % 10000 - 1;
             if (is_cursed(inv[ci].curse_state))
             {
-                txt(lang(
-                    itemname(ci) + u8"は外せない。"s,
-                    ""s + itemname(ci) + u8" can't be taken off."s));
+                txt(i18n::s.get(
+                    "core.locale.ui.equip.cannot_be_taken_off", inv[ci]));
                 goto label_2051_internal;
             }
             unequip_item(cc);
             chara_refresh(cc);
             snd(13);
             txtnew();
-            txt(lang(
-                itemname(ci) + u8"を外した。"s,
-                u8"You unequip "s + itemname(ci) + u8"."s));
-            if (cdata_body_part(cc, body) / 10000 == 5)
+            txt(i18n::s.get("core.locale.ui.equip.you_unequip", inv[ci]));
+            if (cdata[cc].body_parts[body - 100] / 10000 == 5)
             {
                 equip_melee_weapon();
             }
@@ -3262,11 +3262,11 @@ label_2052_internal:
     if (key == key_identify)
     {
         p = list(0, pagesize * page + cs);
-        if (cdata_body_part(cc, p) % 10000 != 0)
+        if (cdata[cc].body_parts[p - 100] % 10000 != 0)
         {
-            ci = cdata_body_part(cc, p) % 10000 - 1;
+            ci = cdata[cc].body_parts[p - 100] % 10000 - 1;
             cs_prev = cs;
-            show_item_description();
+            item_show_description();
             nowindowanime = 1;
             returnfromidentify = 0;
             screenupdate = -1;
@@ -3394,7 +3394,7 @@ menu_result menu_materials()
     wy = winposy(430);
     ww = 600;
     wh = 430;
-    windowanime(wx, wy, ww, wh, 10, 4);
+    window_animation(wx, wy, ww, wh, 9, 4);
     windowshadow = 1;
 label_1860_internal:
     cs_bk = -1;
@@ -3411,8 +3411,10 @@ label_1860_internal:
 label_1861_internal:
     s = strhint2 + strhint3b;
     showscroll(s, wx, wy, ww, wh);
-    display_topic(lang(u8"所持マテリアル"s, u8"Name"s), wx + 38, wy + 36);
-    display_topic(lang(u8"説明"s, u8"Detail"s), wx + 296, wy + 36);
+    display_topic(
+        i18n::s.get("core.locale.ui.material.name"), wx + 38, wy + 36);
+    display_topic(
+        i18n::s.get("core.locale.ui.material.detail"), wx + 296, wy + 36);
     keyrange = 0;
     for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
     {
@@ -3425,9 +3427,7 @@ label_1861_internal:
         ++keyrange;
         if (cnt % 2 == 0)
         {
-            pos(wx + 70, wy + 66 + cnt * 19);
-            gfini(490, 18);
-            gfdec2(12, 14, 16);
+            boxf(wx + 70, wy + 66 + cnt * 19, 490, 18, {12, 14, 16, 16});
         }
         display_key(wx + 68, wy + 66 + cnt * 19 - 2, cnt);
     }
@@ -3441,16 +3441,14 @@ label_1861_internal:
             break;
         }
         i = list(0, p);
-        s = ""s + matname(i) + lang(u8" × "s, u8" x "s) + mat(i);
+        s = ""s + matname(i) + " " + i18n::s.get("core.locale.crafting.menu.x")
+            + " " + mat(i);
         cs_list(cs == cnt, s, wx + 96, wy + 66 + cnt * 19 - 1, 0, 0);
         s = matdesc(i);
         pos(wx + 308, wy + 66 + cnt * 19 + 2);
         mes(s);
-        p(1) = matref(2, i);
-        prepare_item_image(p(1), 0);
-        pos(wx + 47, wy + 69 + cnt * 19 + 2);
-        gmode(2, inf_tiles, inf_tiles);
-        grotate(1, 0, 960, 0, chipi(2, p(1)), chipi(3, p(1)));
+
+        draw_item_material(matref(2, i), wx + 47, wy + 69 + cnt * 19 + 2);
     }
     if (keyrange != 0)
     {
@@ -3684,7 +3682,7 @@ int change_appearance()
     wx = (windoww - ww) / 2 + inf_screenx;
     wy = winposy(wh);
     snd(97);
-    windowanime(wx, wy, ww, wh, 10, 7);
+    window_animation(wx, wy, ww, wh, 9, 7);
     gsel(4);
     pos(0, 0);
     picload(filesystem::dir::graphic() / u8"face1.bmp", 1);
@@ -3709,64 +3707,35 @@ label_2040_internal:
     listmax = 0;
     if (page == 0)
     {
-        if (jp)
-        {
-            s(0) = u8"決定    "s;
-            s(1) = u8"肖像　　"s;
-            s(2) = u8"髪　　　"s;
-            s(3) = u8"副髪　　"s;
-            s(4) = u8"髪の色　"s;
-            s(5) = u8"体　　　"s;
-            s(6) = u8"服　　　"s;
-            s(7) = u8"ﾊﾟﾝﾂ　　"s;
-            s(8) = u8"詳細設定"s;
-        }
-        if (en)
-        {
-            s(0) = u8"Done    "s;
-            s(1) = u8"Portrait"s;
-            s(2) = u8"Hair    "s;
-            s(3) = u8"Sub Hair"s;
-            s(4) = u8"Hair CL "s;
-            s(5) = u8"Body    "s;
-            s(6) = u8"Cloth   "s;
-            s(7) = u8"Pants   "s;
-            s(8) = u8"Set Detail"s;
-        }
+        s(0) = i18n::s.get("core.locale.ui.appearance.basic.done");
+        s(1) = i18n::s.get("core.locale.ui.appearance.basic.portrait");
+        s(2) = i18n::s.get("core.locale.ui.appearance.basic.hair");
+        s(3) = i18n::s.get("core.locale.ui.appearance.basic.sub_hair");
+        s(4) = i18n::s.get("core.locale.ui.appearance.basic.hair_color");
+        s(5) = i18n::s.get("core.locale.ui.appearance.basic.body");
+        s(6) = i18n::s.get("core.locale.ui.appearance.basic.cloth");
+        s(7) = i18n::s.get("core.locale.ui.appearance.basic.pants");
+        s(8) = i18n::s.get("core.locale.ui.appearance.basic.set_detail");
         if (cc != 0)
         {
-            s(9) = lang(u8"ｶｽﾀﾑｷｬﾗ "s, u8"Custom  "s);
+            s(9) = i18n::s.get("core.locale.ui.appearance.basic.custom");
         }
         else
         {
-            s(9) = lang(u8"乗馬時　"s, u8"Riding  "s);
+            s(9) = i18n::s.get("core.locale.ui.appearance.basic.riding");
         }
         p = 9 + (cc != 0) + (cc == 0) * (gdata_mount != 0);
     }
     else
     {
-        if (jp)
-        {
-            s(0) = u8"体の色　"s;
-            s(1) = u8"服の色　"s;
-            s(2) = u8"ﾊﾟﾝﾂの色"s;
-            s(3) = u8"ｱｸｾｻﾘ1　"s;
-            s(4) = u8"ｱｸｾｻﾘ2　"s;
-            s(5) = u8"ｱｸｾｻﾘ3　"s;
-            s(6) = u8"目　　　"s;
-            s(7) = u8"基本設定"s;
-        }
-        if (en)
-        {
-            s(0) = u8"Body CL "s;
-            s(1) = u8"Cloth CL"s;
-            s(2) = u8"Pants CL"s;
-            s(3) = u8"Etc1    "s;
-            s(4) = u8"Etc2    "s;
-            s(5) = u8"Etc3    "s;
-            s(6) = u8"Eyes    "s;
-            s(7) = u8"Set Basic"s;
-        }
+        s(0) = i18n::s.get("core.locale.ui.appearance.detail.body_color");
+        s(1) = i18n::s.get("core.locale.ui.appearance.detail.cloth_color");
+        s(2) = i18n::s.get("core.locale.ui.appearance.detail.pants_color");
+        s(3) = i18n::s.get("core.locale.ui.appearance.detail.etc_1");
+        s(4) = i18n::s.get("core.locale.ui.appearance.detail.etc_2");
+        s(5) = i18n::s.get("core.locale.ui.appearance.detail.etc_3");
+        s(6) = i18n::s.get("core.locale.ui.appearance.detail.eyes");
+        s(7) = i18n::s.get("core.locale.ui.appearance.detail.set_basic");
         p = 8;
     }
     for (int cnt = 0, cnt_end = (p); cnt < cnt_end; ++cnt)
@@ -3788,14 +3757,15 @@ label_2040_internal:
     }
 label_2041_internal:
     pagesize = 0;
-    s(0) = lang(u8"肖像の変更"s, u8"Appearance"s);
-    s(1) = lang(
-        u8"左右キー [変更]  ｷｬﾝｾﾙ [閉じる]"s,
-        u8"Right,left [Change]  Shift,Esc [Close]"s);
+    s(0) = i18n::s.get("core.locale.ui.appearance.basic.title");
+    s(1) = i18n::s.get("core.locale.ui.appearance.hint");
     display_window(
         (windoww - 380) / 2 + inf_screenx, winposy(340) - 12, 380, 340);
     pagesize = listmax;
-    display_topic(lang(u8"項目"s, u8"Category"s), wx + 34, wy + 36);
+    display_topic(
+        i18n::s.get("core.locale.ui.appearance.basic.category"),
+        wx + 34,
+        wy + 36);
     pos(wx + ww - 40, wy);
     gcopy(3, 960, 96, 48, 120);
     ++i;
@@ -3814,12 +3784,12 @@ label_2041_internal:
         {
             p = cdata[cc].sex * 64 + cdata[cc].portrait;
             pos(wx + 238, wy + 75);
-            gzoom(4, p % 16 * 48, p / 16 * 72, 48, 72, 80, 112);
+            gcopy(4, p % 16 * 48, p / 16 * 72, 48, 72, 80, 112);
         }
         else if (cdata[cc].portrait != -1)
         {
             pos(wx + 238, wy + 75);
-            gzoom(
+            gcopy(
                 7,
                 std::abs((cdata[cc].portrait + 2)) * 80,
                 0,
@@ -3832,16 +3802,12 @@ label_2041_internal:
     else if (cdata[cc].has_own_sprite() == 1)
     {
         pos(wx + 280, wy + 130);
-        gmode(2, 32, 48);
-        grotate(10 + cc, f / 4 % 4 * 32, f / 16 % 4 * 48, 0, 48, 80);
+        gmode(2);
+        gcopy_c(20 + cc, f / 4 % 4 * 32, f / 16 % 4 * 48, 32, 48, 48, 80);
     }
     else
     {
-        i = cdata[cc].image % 1000;
-        chara_preparepic(cdata[cc].image % 1000, cdata[cc].image / 1000);
-        pos(wx + 280, wy + 130);
-        gmode(2, chipc(2, i), chipc(3, i));
-        grotate(5, 0, 960, 0, chipc(2, i), chipc(3, i));
+        draw_chara(cdata[cc], wx + 280, wy + 130);
     }
     gmode(2);
     font(14 - en * 2);
@@ -4005,7 +3971,7 @@ label_2041_internal:
     goto label_2041_internal;
 }
 
-int label_2044()
+int change_appearance_equipment()
 {
     create_pcpic(cc, true);
     snd(26);
@@ -4015,24 +3981,12 @@ int label_2044()
     cs_bk = -1;
     windowshadow = 1;
     listmax = 0;
-    if (jp)
-    {
-        s(0) = u8"決定    "s;
-        s(1) = u8"胸部鎧　"s;
-        s(2) = u8"脚部鎧　"s;
-        s(3) = u8"ベルト　"s;
-        s(4) = u8"ｸﾞﾛｰﾌﾞ　"s;
-        s(5) = u8"マント　"s;
-    }
-    if (en)
-    {
-        s(0) = u8"Done    "s;
-        s(1) = u8"Chest   "s;
-        s(2) = u8"Leg     "s;
-        s(3) = u8"Belt    "s;
-        s(4) = u8"Glove   "s;
-        s(5) = u8"Mantle  "s;
-    }
+    s(0) = i18n::s.get("core.locale.ui.appearance.equipment.done");
+    s(1) = i18n::s.get("core.locale.ui.appearance.equipment.chest");
+    s(2) = i18n::s.get("core.locale.ui.appearance.equipment.leg");
+    s(3) = i18n::s.get("core.locale.ui.appearance.equipment.belt");
+    s(4) = i18n::s.get("core.locale.ui.appearance.equipment.glove");
+    s(5) = i18n::s.get("core.locale.ui.appearance.equipment.mantle");
     p = 6;
     for (int cnt = 0, cnt_end = (p); cnt < cnt_end; ++cnt)
     {
@@ -4055,13 +4009,11 @@ int label_2044()
     while (1)
     {
         pagesize = 0;
-        s(0) = lang(u8"装備表示の変更"s, u8"Parts to hide"s);
-        s(1) = lang(
-            u8"左右キー [変更]  ｷｬﾝｾﾙ [閉じる]"s,
-            u8"Right,left [Change]  Shift,Esc [Close]"s);
+        s(0) = i18n::s.get("core.locale.ui.appearance.equipment.title");
+        s(1) = i18n::s.get("core.locale.ui.appearance.hint");
         display_window(
             (windoww - 360) / 2 + inf_screenx, winposy(289) - 12, 360, 289);
-        s = lang(u8"項目"s, u8"Part"s);
+        s = i18n::s.get("core.locale.ui.appearance.equipment.part");
         pagesize = listmax;
         display_topic(s, wx + 34, wy + 36);
         ++i;
@@ -4075,8 +4027,8 @@ int label_2044()
         }
         window2(wx + 234, wy + 60, 88, 120, 1, 1);
         pos(wx + 280, wy + 120);
-        gmode(2, 32, 48);
-        grotate(10 + cc, f / 4 % 4 * 32, f / 16 % 4 * 48, 0, 48, 80);
+        gmode(2);
+        gcopy_c(20 + cc, f / 4 % 4 * 32, f / 16 % 4 * 48, 32, 48, 48, 80);
         gmode(2);
         font(14 - en * 2);
         cs_listbk();
@@ -4152,38 +4104,39 @@ void append_accuracy_info(int val0)
     for (int cnt = 0; cnt < 30; ++cnt)
     {
         body = 100 + cnt;
-        if (cdata_body_part(cc, cnt) % 10000 == 0)
+        if (cdata[cc].body_parts[cnt] % 10000 == 0)
         {
             continue;
         }
-        if (cdata_body_part(cc, cnt) / 10000 == 10)
+        if (cdata[cc].body_parts[cnt] / 10000 == 10)
         {
             continue;
         }
-        if (cdata_body_part(cc, cnt) / 10000 == 11)
+        if (cdata[cc].body_parts[cnt] / 10000 == 11)
         {
             continue;
         }
-        cw = cdata_body_part(cc, cnt) % 10000 - 1;
+        cw = cdata[cc].body_parts[cnt] % 10000 - 1;
         if (inv[cw].dice_x > 0)
         {
             attackskill = inv[cw].skill;
             ++p(1);
-            s(1) = lang(u8"武器"s, u8"Melee"s) + p(1);
+            s(1) =
+                i18n::s.get("core.locale.ui.chara_sheet.damage.melee") + p(1);
             ++attacknum;
             show_weapon_dice(val0);
         }
     }
     if (attackskill == 106)
     {
-        s(1) = lang(u8"格闘"s, u8"Unarmed"s);
+        s(1) = i18n::s.get("core.locale.ui.chara_sheet.damage.unarmed");
         show_weapon_dice(val0);
     }
     attacknum = 0;
     int stat = can_do_ranged_attack();
     if (stat == 1)
     {
-        s(1) = lang(u8"射撃"s, u8"Dist"s);
+        s(1) = i18n::s.get("core.locale.ui.chara_sheet.damage.dist");
         show_weapon_dice(val0);
     }
     return;
@@ -4197,7 +4150,7 @@ void show_weapon_dice(int val0)
     if (val0 == 0)
     {
         pos(wx + 590, wy + 281 + p(2) * 16);
-        mes(lang(u8"命中"s, u8"Hit"s));
+        mes(i18n::s.get("core.locale.ui.chara_sheet.damage.hit"));
         pos(wx + 417, wy + 281 + p(2) * 16);
         mes(s(1));
     }
@@ -4246,7 +4199,7 @@ menu_result menu_feats()
     return menu_feats_internal();
 }
 
-menu_result label_1969()
+menu_result menu_feats_internal_b()
 {
     return menu_feats_internal();
 }
@@ -4266,7 +4219,7 @@ void deco_traits_menu()
     wh = 400;
     wx = (windoww - ww) / 2 + inf_screenx;
     wy = winposy(wh);
-    windowanime(wx, wy, ww, wh, 10, 4);
+    window_animation(wx, wy, ww, wh, 9, 4);
     gsel(3);
     pos(960, 96);
     picload(filesystem::dir::graphic() / u8"deco_feat.bmp", 1);
@@ -4293,7 +4246,7 @@ label_196901_internal:
         {
             break;
         }
-        int stat = get_trait_info(0, cnt);
+        int stat = trait_get_info(0, cnt);
         if (stat == 0)
         {
             continue;
@@ -4332,31 +4285,17 @@ label_196901_internal:
         {
             if (i == -1)
             {
-                if (jp)
-                {
-                    s = u8"◆ 取得できるフィート"s;
-                }
-                else
-                {
-                    s = u8"[Available feats]"s;
-                }
+                s = i18n::s.get("core.locale.trait.window.available_feats");
             }
             if (i == -2)
             {
-                if (jp)
-                {
-                    s = u8"◆ 特徴と体質"s;
-                }
-                else
-                {
-                    s = u8"[Feats and traits]"s;
-                }
+                s = i18n::s.get("core.locale.trait.window.feats_and_traits");
             }
             listn(0, cnt) = s;
             continue;
         }
         int tid = i;
-        int stat = get_trait_info(0, tid);
+        int stat = trait_get_info(0, tid);
         featrq = stat;
         s = "";
         if (list(1, cnt) < 10000)
@@ -4371,14 +4310,9 @@ label_196901_internal:
             }
             if (featrq == -1)
             {
-                if (jp)
-                {
-                    s += u8"(条件不足)"s;
-                }
-                else
-                {
-                    s += u8"(requirement)"s;
-                }
+                s += u8"("s
+                    + i18n::s.get("core.locale.trait.window.requirement")
+                    + u8")"s;
             }
             pos(wx + 30, wy + 61 + cnt * 19);
             x = 84;
@@ -4389,47 +4323,28 @@ label_196901_internal:
             x = 70;
             if (traitref == 0)
             {
-                if (jp)
-                {
-                    s = u8"[フィート]"s;
-                }
-                else
-                {
-                    s = u8"[Feat]"s;
-                }
+                s = u8"["s
+                    + i18n::s.get("core.locale.trait.window.category.feat")
+                    + u8"]"s;
             }
             if (traitref == 1)
             {
-                if (jp)
-                {
-                    s = u8"[変異]"s;
-                }
-                else
-                {
-                    s = u8"[Mutation]"s;
-                }
+                s = u8"["s
+                    + i18n::s.get("core.locale.trait.window.category.mutation")
+                    + u8"]"s;
             }
             if (traitref == 2)
             {
-                if (jp)
-                {
-                    s = u8"[先天]"s;
-                }
-                else
-                {
-                    s = u8"[Race]"s;
-                }
+                s = u8"["s
+                    + i18n::s.get("core.locale.trait.window.category.race")
+                    + u8"]"s;
             }
             if (traitref == 3)
             {
-                if (jp)
-                {
-                    s = u8"[ｴｰﾃﾙ病]"s;
-                }
-                else
-                {
-                    s = u8"[Disease]"s;
-                }
+                s = u8"["s
+                    + i18n::s.get(
+                          "core.locale.trait.window.category.ether_disease")
+                    + u8"]"s;
             }
             s += traitrefn(2 + std::abs(trait(tid)));
         }
@@ -4439,36 +4354,38 @@ label_196901_internal:
     {
         list(0, listmax) = 1;
         list(1, listmax) = 99999;
-        listn(0, listmax) = lang(u8"[その他]"s, u8"[ETC]"s)
-            + lang(u8"あなたは変装している"s,
-                   u8"You are disguising yourself."s);
+        listn(0, listmax) = u8"["s
+            + i18n::s.get("core.locale.trait.window.category.etc") + u8"]"s
+            + i18n::s.get("core.locale.trait.incognito");
         ++listmax;
     }
     if (cdata[tc].is_pregnant() == 1)
     {
         list(0, listmax) = 1;
         list(1, listmax) = 99999;
-        listn(0, listmax) = lang(u8"[その他]"s, u8"[ETC]"s)
-            + lang(u8"あなたは寄生されている"s, u8"You are pregnant."s);
+        listn(0, listmax) = u8"["s
+            + i18n::s.get("core.locale.trait.window.category.etc") + u8"]"s
+            + i18n::s.get("core.locale.trait.pregnant");
         ++listmax;
     }
     if (cdata[tc].has_anorexia() == 1)
     {
         list(0, listmax) = 1;
         list(1, listmax) = 99999;
-        listn(0, listmax) = lang(u8"[その他]"s, u8"[ETC]"s)
-            + lang(u8"あなたは拒食症だ"s, u8"You have anorexia."s);
+        listn(0, listmax) = u8"["s
+            + i18n::s.get("core.locale.trait.window.category.etc") + u8"]"s
+            + i18n::s.get("core.locale.trait.anorexia");
         ++listmax;
     }
     if (cdata[tc].speed_correction_value != 0)
     {
         list(0, listmax) = 1;
         list(1, listmax) = 99999;
-        listn(0, listmax) = lang(u8"[その他]"s, u8"[ETC]"s)
-            + lang((u8"あなたは複雑な体をしている[速度-"s
-                    + cdata[tc].speed_correction_value + u8"%]"s),
-                   (u8"Your body is complicated. [SPD-"s
-                    + cdata[tc].speed_correction_value + u8"%]"s));
+        listn(0, listmax) = u8"["s
+            + i18n::s.get("core.locale.trait.window.category.etc") + u8"]"s
+            + i18n::s.get(
+                  "core.locale.trait.body_is_complicated",
+                  cdata[tc].speed_correction_value);
         ++listmax;
     }
     if (tc == 0 && gdata_ether_disease_speed != 0)
@@ -4477,18 +4394,18 @@ label_196901_internal:
         {
             list(0, listmax) = 1;
             list(1, listmax) = 99999;
-            listn(0, listmax) = lang(u8"[その他]"s, u8"[ETC]"s)
-                + lang(u8"あなたのエーテル病の進行は早い"s,
-                       u8"Your Ether disease grows fast."s);
+            listn(0, listmax) = u8"["s
+                + i18n::s.get("core.locale.trait.window.category.etc") + u8"]"s
+                + i18n::s.get("core.locale.trait.ether_disease_grows.fast");
             ++listmax;
         }
         else
         {
             list(0, listmax) = 1;
             list(1, listmax) = 99999;
-            listn(0, listmax) = lang(u8"[その他]"s, u8"[ETC]"s)
-                + lang(u8"あなたのエーテル病の進行は遅い"s,
-                       u8"Your Ether disease grows slow."s);
+            listn(0, listmax) = u8"["s
+                + i18n::s.get("core.locale.trait.window.category.etc") + u8"]"s
+                + i18n::s.get("core.locale.trait.ether_disease_grows.slow");
             ++listmax;
         }
     }
@@ -4501,9 +4418,9 @@ label_196901_internal:
     std::vector<std::string> traits_by_enchantments;
     for (int i = 0; i < 30; ++i)
     {
-        if (cdata_body_part(tc, i) % 10000 != 0)
+        if (cdata[tc].body_parts[i] % 10000 != 0)
         {
-            ci = cdata_body_part(tc, i) % 10000 - 1;
+            ci = cdata[tc].body_parts[i] % 10000 - 1;
             for (const auto& enc : inv[ci].enchantments)
             {
                 if (enc.id == 0)
@@ -4527,9 +4444,8 @@ label_196901_internal:
     {
         list(0, listmax) = 1;
         list(1, listmax) = 99999;
-        listn(0, listmax) =
-            lang(his(tc, 1) + u8"装備は"s, cnven(his(tc, 1)) + u8" equipment "s)
-            + trait;
+        listn(0, listmax) = i18n::s.get(
+            "core.locale.trait.window.his_equipment", cnven(his(tc, 1)), trait);
         ++listmax;
     }
     if (tc != 0)
@@ -4580,11 +4496,10 @@ label_196901_internal:
         }
     }
 label_1970_internal:
-    s(0) = lang(u8"特徴と体質"s, u8"Feats and Traits"s);
-    s(1) = lang(
-               u8"決定 [フィート取得]  "s + strhint2 + strhint3,
-               u8"Enter [Gain Feat]  "s + strhint2 + strhint3)
-        + u8"z,x ["s + lang(u8"仲間"s, u8"Ally"s) + u8"]"s;
+    s(0) = i18n::s.get("core.locale.trait.window.title");
+    s(1) = i18n::s.get("core.locale.trait.window.enter") + "  " + strhint2
+        + strhint3 + u8"z,x ["s + i18n::s.get("core.locale.trait.window.ally")
+        + u8"]"s;
     if (mode == 1)
     {
         i = 1;
@@ -4600,18 +4515,9 @@ label_1970_internal:
         430,
         55,
         40);
-    if (jp)
-    {
-        s(0) = u8"特徴の名称"s;
-        s(1) = u8"段階"s;
-        s(2) = u8"特徴の効果"s;
-    }
-    else
-    {
-        s(0) = u8"Name"s;
-        s(1) = u8"Level"s;
-        s(2) = u8"Detail"s;
-    }
+    s(0) = i18n::s.get("core.locale.trait.window.name");
+    s(1) = i18n::s.get("core.locale.trait.window.level");
+    s(2) = i18n::s.get("core.locale.trait.window.detail");
     display_topic(s, wx + 46, wy + 36);
     display_topic(s(2), wx + 255, wy + 36);
     pos(wx + 46, wy - 16);
@@ -4640,9 +4546,7 @@ label_1970_internal:
         }
         if (cnt % 2 == 0)
         {
-            pos(wx + 57, wy + 66 + cnt * 19);
-            gfini(640, 18);
-            gfdec2(12, 14, 16);
+            boxf(wx + 57, wy + 66 + cnt * 19, 640, 18, {12, 14, 16, 16});
         }
         if (list(1, p) >= 10000 || list(0, p) < 0)
         {
@@ -4652,14 +4556,14 @@ label_1970_internal:
     }
     if (tc == 0)
     {
-        s = lang(
-            u8"残り "s + gdata_acquirable_feat_count
-                + u8"個のフィートを取得できる"s,
-            u8"You can acquire "s + gdata_acquirable_feat_count + u8" feats"s);
+        s = i18n::s.get(
+            "core.locale.trait.window.you_can_acquire",
+            gdata_acquirable_feat_count);
     }
     else
     {
-        s = cnven(cdatan(0, tc)) + lang(u8"の特性"s, u8"'s Trait"s);
+        s = i18n::s.get(
+            "core.locale.trait.window.your_trait", cnven(cdatan(0, tc)));
     }
     display_note(s, 50);
     font(14 - en * 2);
@@ -4680,7 +4584,7 @@ label_1970_internal:
         int text_color{};
         if (list(1, p) != 99999)
         {
-            int stat = get_trait_info(0, i);
+            int stat = trait_get_info(0, i);
             featrq = stat;
             if (trait(i) == 0)
             {
@@ -4748,14 +4652,13 @@ label_1970_internal:
                 if (list(1, p) < 10000)
                 {
                     int tid = list(0, p);
-                    get_trait_info(0, tid);
+                    trait_get_info(0, tid);
                     if (traitref(2) <= trait(tid))
                     {
                         if (mode != 1)
                         {
-                            txt(lang(
-                                u8"これ以上取得できない。"s,
-                                u8"You already have maxed out the feat."s));
+                            txt(i18n::s.get(
+                                "core.locale.trait.window.already_maxed"));
                         }
                         goto label_196901_internal;
                     }
@@ -4869,7 +4772,7 @@ label_1970_internal:
                     p = 0;
                 }
             }
-            if (cdata[p].state != 1)
+            if (cdata[p].state() != character::state_t::alive)
             {
                 continue;
             }
@@ -4971,15 +4874,17 @@ menu_result menu_journal()
         noteadd(""s);
     }
     gold = 0;
-    p = clamp(cdata[0].fame / 10, 100, 25000);
-    if (cdata[0].fame >= 25000)
+    p = clamp(cdata.player().fame / 10, 100, 25000);
+    if (cdata.player().fame >= 25000)
     {
-        p += (cdata[0].fame - 25000) / 100;
+        p += (cdata.player().fame - 25000) / 100;
     }
     gold += p;
     noteadd(u8" - Title & Ranking - "s);
     noteadd(""s);
-    noteadd(lang(u8"名声: "s, u8"Fame: "s) + cdata[0].fame);
+    noteadd(
+        i18n::s.get("core.locale.ui.journal.rank.fame") + ": "
+        + cdata.player().fame);
     noteadd(""s);
     for (int cnt = 0; cnt < 9; ++cnt)
     {
@@ -4987,24 +4892,21 @@ menu_result menu_journal()
         {
             noteadd(
                 ""s + ranktitle(cnt) + u8" Rank."s + gdata((120 + cnt)) / 100);
-            s = lang(
-                u8"給料: 約 "s + calcincome(cnt) + u8" gold  "s,
-                u8"Pay: About "s + calcincome(cnt) + u8" gold pieces "s);
+            s = i18n::s.get("core.locale.ui.journal.rank.pay", calcincome(cnt));
             gold += calcincome(cnt);
             if (cnt != 3 && cnt != 4 && cnt != 5 && cnt != 8)
             {
-                s += lang(u8"ノルマ: "s, u8"\nDeadline: "s) + gdata((140 + cnt))
-                    + lang(u8"日以内"s, u8" Days left"s);
+                s += i18n::s.get(
+                    "core.locale.ui.journal.rank.deadline", gdata(140 + cnt));
             }
             noteadd(s);
             noteadd(""s);
         }
     }
-    noteadd(lang(
-        u8"EXバトル: 勝利 "s + gdata(802) + u8"回 最高Lv"s
-            + gdata_ex_arena_level,
-        u8"EX Arena Wins:"s + gdata(802) + u8"  Highest Level:"s
-            + cnvrank(gdata_ex_arena_level)));
+    noteadd(i18n::s.get(
+        "core.locale.ui.journal.rank.arena",
+        gdata(802),
+        cnvrank(gdata_ex_arena_level)));
     noteadd(""s);
     for (int cnt = 0,
              cnt_end = cnt + (pagesize / 2 - noteinfo() % (pagesize / 2));
@@ -5015,44 +4917,22 @@ menu_result menu_journal()
     }
     noteadd(u8" - Income & Expense - "s);
     noteadd(""s);
-    if (jp)
-    {
-        noteadd(u8"◆ 給料(毎月1日と15日に支給)"s);
-        noteadd(u8"@BL　合計　　 : 約 "s + gold + i18n::_(u8"ui", u8"gold"));
-        noteadd(""s);
-        noteadd(u8"◆ 請求書内訳(毎月1日に発行)"s);
-        noteadd(
-            u8"@RE　人件費  : 約 "s + gdata_cost_to_hire
-            + i18n::_(u8"ui", u8"gold"));
-        noteadd(
-            u8"@RE　運営費  : 約 "s + calccostbuilding()
-            + i18n::_(u8"ui", u8"gold"));
-        noteadd(
-            u8"@RE　税金    : 約 "s + calccosttax()
-            + i18n::_(u8"ui", u8"gold"));
-        noteadd(
-            u8"@RE　合計　  : 約 "s
-            + (gdata_cost_to_hire + calccostbuilding() + calccosttax())
-            + i18n::_(u8"ui", u8"gold"));
-        noteadd(""s);
-        noteadd(u8"現在未払いの請求書は"s + gdata_left_bill + u8"枚"s);
-    }
-    else
-    {
-        noteadd(u8"Salary (Paid every 1st and 15th day)"s);
-        noteadd(u8"@BL  Sum    : About "s + gold + u8" GP"s);
-        noteadd(""s);
-        noteadd(u8"Bills  (Issued every 1st day)"s);
-        noteadd(u8"@RE  Labor  : About "s + gdata_cost_to_hire + u8" GP"s);
-        noteadd(u8"@RE  Maint. : About "s + calccostbuilding() + u8" GP"s);
-        noteadd(u8"@RE  Tax    : About "s + calccosttax() + u8" GP"s);
-        noteadd(
-            u8"@RE  Sum    : About "s
-            + (gdata_cost_to_hire + calccostbuilding() + calccosttax())
-            + u8" GP"s);
-        noteadd(""s);
-        noteadd(u8"You have "s + gdata_left_bill + u8" unpaid bills."s);
-    }
+    noteadd(i18n::s.get("core.locale.ui.journal.income.salary.title"));
+    noteadd(i18n::s.get("core.locale.ui.journal.income.salary.sum", gold));
+    noteadd(""s);
+    noteadd(i18n::s.get("core.locale.ui.journal.income.bills.title"));
+    noteadd(i18n::s.get(
+        "core.locale.ui.journal.income.bills.labor", gdata_cost_to_hire));
+    noteadd(i18n::s.get(
+        "core.locale.ui.journal.income.bills.maintenance", calccostbuilding()));
+    noteadd(
+        i18n::s.get("core.locale.ui.journal.income.bills.tax", calccosttax()));
+    noteadd(i18n::s.get(
+        "core.locale.ui.journal.income.bills.sum",
+        (gdata_cost_to_hire + calccostbuilding() + calccosttax())));
+    noteadd(""s);
+    noteadd(i18n::s.get(
+        "core.locale.ui.journal.income.bills.unpaid", gdata_left_bill));
     for (int cnt = 0,
              cnt_end = cnt + (pagesize / 2 - noteinfo() % (pagesize / 2));
          cnt < cnt_end;
@@ -5064,12 +4944,12 @@ menu_result menu_journal()
     noteadd(""s);
     append_subquest_journal(1);
     listmax = noteinfo();
-    showtitle(lang(u8"ジャーナル"s, u8"Journal"s), strhint2 + strhint3, 236, 1);
+    show_title(strhint2 + strhint3);
     drawmenu(2);
     wx = (windoww - 736) / 2 + inf_screenx;
     wy = winposy(448);
     snd(59);
-    windowanime(wx, wy, 736, 448, 10, 4);
+    window_animation(wx, wy, 736, 448, 9, 4);
 label_1973_internal:
     cs_bk = -1;
     pagemax = (listmax - 1) / pagesize;
@@ -5233,7 +5113,7 @@ turn_result_t show_quest_board()
         {
             if (mode == 0)
             {
-                if (cdata[0].continuous_action_turn == 0)
+                if (cdata.player().continuous_action_turn == 0)
                 {
                     gdata(204) = 1;
                     ghelp = 4;
@@ -5268,7 +5148,7 @@ turn_result_t show_quest_board()
             continue;
         }
         rc = qdata(0, cnt);
-        if (cdata[rc].state != 1)
+        if (cdata[rc].state() != character::state_t::alive)
         {
             continue;
         }
@@ -5278,9 +5158,7 @@ turn_result_t show_quest_board()
     }
     if (listmax == 0)
     {
-        txt(lang(
-            u8"新しい依頼は掲示されていないようだ。"s,
-            u8"It seems there are no new notices."s));
+        txt(i18n::s.get("core.locale.ui.board.no_new_notices"));
         return turn_result_t::turn_end;
     }
     sort_list_by_column1();
@@ -5298,7 +5176,7 @@ turn_result_t show_quest_board()
     for (int cnt = 0; cnt < 4; ++cnt)
     {
         y = wy + cnt * 120;
-        window(wx + 4, y + 4, ww, h, 0, -1);
+        window(wx + 4, y + 4, ww, h, true);
         window(wx, y, ww, h);
         pos(wx + 20, y + 8);
         gcopy(3, 960, 240, 48, 84);
@@ -5317,15 +5195,14 @@ label_1977_internal:
         page = 0;
     }
 label_1978_internal:
-    s(0) = lang(u8"掲載されている依頼"s, u8"Notice Board"s);
+    s(0) = i18n::s.get("core.locale.ui.board.title");
     s(1) = strhint2 + strhint3b;
     gmode(0);
     pos(0, 0);
     gcopy(4, 0, 0, windoww, inf_ver);
     gmode(2);
     font(16 - en * 2);
-    pos(wx + ww + 20, wy);
-    bmes(u8"Page "s + (page + 1) + u8"/"s + (pagemax + 1), 255, 255, 255);
+    bmes(u8"Page "s + (page + 1) + u8"/"s + (pagemax + 1), wx + ww + 20, wy);
     keyrange = 0;
     for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
     {
@@ -5337,9 +5214,7 @@ label_1978_internal:
         }
         key_list(cnt) = key_select(cnt);
         ++keyrange;
-        pos(wx + 70, y);
-        gfini(460, 18);
-        gfdec2(12, 14, 16);
+        boxf(wx + 70, y, 460, 18, {12, 14, 16, 16});
         display_key(wx + 70, y - 2, cnt);
     }
     cs_listbk();
@@ -5369,17 +5244,17 @@ label_1978_internal:
         p(1) = 14;
         for (int cnt = 0; cnt < 1; ++cnt)
         {
-            if (cdata[0].level * 2 < qdata(5, rq))
+            if (cdata.player().level * 2 < qdata(5, rq))
             {
                 color(205, 0, 0);
                 break;
             }
-            if (cdata[0].level * 3 / 2 < qdata(5, rq))
+            if (cdata.player().level * 3 / 2 < qdata(5, rq))
             {
                 color(140, 80, 0);
                 break;
             }
-            if (cdata[0].level < qdata(5, rq))
+            if (cdata.player().level < qdata(5, rq))
             {
                 color(0, 0, 205);
                 break;
@@ -5397,13 +5272,13 @@ label_1978_internal:
             for (int cnt = 0, cnt_end = (p); cnt < cnt_end; ++cnt)
             {
                 pos(wx + 270 + cnt % 5 * 13, y + dy + cnt / 5 * 8 + 2);
-                mes(lang(u8"★"s, u8"$"s));
+                mes(i18n::s.get("core.locale.ui.board.difficulty"));
             }
         }
         else
         {
             pos(wx + 270, y + 2);
-            mes(lang(u8"★×"s, u8"$ x "s) + p);
+            mes(i18n::s.get("core.locale.ui.board.difficulty_counter") + p);
         }
         color(0, 0, 0);
         font(13 - en * 2);
@@ -5422,7 +5297,7 @@ label_1978_internal:
     if (p != -1)
     {
         txtnew();
-        txt(lang(u8"依頼主に会う？"s, u8"Do you want to meet the client?"s));
+        txt(i18n::s.get("core.locale.ui.board.do_you_meet"));
         ELONA_YES_NO_PROMPT();
         rtval = show_prompt(promptx, prompty, 160);
         if (rtval != 0)
@@ -5436,7 +5311,7 @@ label_1978_internal:
         efid = 619;
         magic();
         tc = client;
-        if (cdata[0].state == 1)
+        if (cdata.player().state() == character::state_t::alive)
         {
             quest_teleport = true;
             talk_to_npc();
@@ -5482,11 +5357,12 @@ int show_hire_menu()
     cs = 0;
     cc = 0;
     cs_bk = -1;
-    for (int cnt = 0; cnt < ELONA_MAX_CHARACTERS; ++cnt)
+    for (auto&& cnt : cdata.all())
     {
         if (allyctrl == 2)
         {
-            if (cdata[cnt].state != 6 && cdata[cnt].state != 2)
+            if (cnt.state() != character::state_t::pet_dead
+                && cnt.state() != character::state_t::villager_dead)
             {
                 continue;
             }
@@ -5497,34 +5373,35 @@ int show_hire_menu()
             {
                 if (allyctrl == 1)
                 {
-                    if (cdata[cnt].state != 10)
+                    if (cnt.state()
+                        != character::state_t::servant_being_selected)
                     {
                         continue;
                     }
                 }
             }
-            else if (cdata[cnt].state != 1)
+            else if (cnt.state() != character::state_t::alive)
             {
                 continue;
             }
-            if (cnt < 16)
+            if (cnt.index < 16)
             {
-                if (cdata[cnt].current_map != gdata_current_map)
+                if (cnt.current_map != gdata_current_map)
                 {
                     continue;
                 }
             }
         }
-        if (cnt == 0)
+        if (cnt.index == 0)
         {
             continue;
         }
-        if (cdata[cnt].is_escorted_in_sub_quest() == 1)
+        if (cnt.is_escorted_in_sub_quest() == 1)
         {
             continue;
         }
-        list(0, listmax) = cnt;
-        list(1, listmax) = -cdata[cnt].level;
+        list(0, listmax) = cnt.index;
+        list(1, listmax) = -cnt.level;
         ++listmax;
     }
     sort_list_by_column1();
@@ -5541,19 +5418,21 @@ label_1981_internal:
         page = 0;
     }
 label_1982_internal:
-    s(0) = lang(u8"NPC一覧"s, u8"NPC List"s);
+    s(0) = i18n::s.get("core.locale.ui.npc_list.title");
     s(1) = strhint2 + strhint3;
     display_window((windoww - 700) / 2 + inf_screenx, winposy(448), 700, 448);
     if (allyctrl == 0)
     {
-        s = lang(u8"給料"s, u8"Wage"s);
+        s = i18n::s.get("core.locale.ui.npc_list.wage");
     }
     else
     {
-        s = lang(u8"雇用費(給料)"s, u8"Init. Cost(Wage)"s);
+        s = i18n::s.get("core.locale.ui.npc_list.init_cost");
     }
-    display_topic(lang(u8"NPCの名前"s, u8"Name"s), wx + 28, wy + 36);
-    display_topic(lang(u8"情報"s, u8"Info"s), wx + 350, wy + 36);
+    display_topic(
+        i18n::s.get("core.locale.ui.npc_list.name"), wx + 28, wy + 36);
+    display_topic(
+        i18n::s.get("core.locale.ui.npc_list.info"), wx + 350, wy + 36);
     if (allyctrl != 2)
     {
         display_topic(s, wx + 490, wy + 36);
@@ -5570,9 +5449,7 @@ label_1982_internal:
         ++keyrange;
         if (cnt % 2 == 0)
         {
-            pos(wx + 70, wy + 66 + cnt * 19);
-            gfini(600, 18);
-            gfdec2(12, 14, 16);
+            boxf(wx + 70, wy + 66 + cnt * 19, 600, 18, {12, 14, 16, 16});
         }
         display_key(wx + 58, wy + 66 + cnt * 19 - 2, cnt);
     }
@@ -5585,18 +5462,10 @@ label_1982_internal:
         {
             break;
         }
-        i(0) = cdata[list(0, p)].image % 1000;
-        i(1) = cdata[list(0, p)].image / 1000;
-        chara_preparepic(i, i(1));
-        pos(wx + 40, wy + 74 + cnt * 19 - 8);
-        gmode(2, chipc(2, i), chipc(3, i));
-        grotate(
-            5,
-            0,
-            960,
-            0,
-            chipc(2, i) / (1 + (chipc(3, i) > inf_tiles)),
-            inf_tiles);
+
+        draw_chara_scale_height(
+            cdata[list(0, p)], wx + 40, wy + 74 + cnt * 19 - 8);
+
         i = list(0, p);
         s = cdatan(0, i);
         cutname(s, 36);
@@ -5610,7 +5479,7 @@ label_1982_internal:
         {
             s += cnven(i18n::_(u8"ui", u8"female"));
         }
-        s += lang(u8" "s, u8"("s) + calcage(i) + ""s + lang(u8"歳"s, u8")"s);
+        s += i18n::s.get("core.locale.ui.npc_list.age_counter", calcage(i));
         pos(wx + 372, wy + 66 + cnt * 19 + 2);
         mes(s);
         if (allyctrl != 2)
@@ -5625,7 +5494,7 @@ label_1982_internal:
                 s = ""s + calchirecost(i);
             }
             pos(wx + 512, wy + 66 + cnt * 19 + 2);
-            mes(s + lang(u8" gold"s, u8"gp"s));
+            mes(i18n::s.get("core.locale.ui.npc_list.gold_counter", s(0)));
         }
     }
     if (keyrange != 0)
@@ -5699,11 +5568,12 @@ label_1985_internal:
         page = 0;
     }
 label_1986_internal:
-    s(0) = lang(u8"予約リスト"s, u8"Reserve List"s);
+    s(0) = i18n::s.get("core.locale.ui.reserve.title");
     s(1) = strhint2 + strhint3;
     display_window((windoww - 540) / 2 + inf_screenx, winposy(448), 540, 448);
-    display_topic(lang(u8"アイテムの名前"s, u8"Name"s), wx + 28, wy + 36);
-    display_topic(lang(u8"予約状況"s, u8"Status"s), wx + 390, wy + 36);
+    display_topic(i18n::s.get("core.locale.ui.reserve.name"), wx + 28, wy + 36);
+    display_topic(
+        i18n::s.get("core.locale.ui.reserve.status"), wx + 390, wy + 36);
     keyrange = 0;
     for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
     {
@@ -5716,9 +5586,7 @@ label_1986_internal:
         ++keyrange;
         if (cnt % 2 == 0)
         {
-            pos(wx + 70, wy + 66 + cnt * 19);
-            gfini(440, 18);
-            gfdec2(12, 14, 16);
+            boxf(wx + 70, wy + 66 + cnt * 19, 440, 18, {12, 14, 16, 16});
         }
         display_key(wx + 58, wy + 66 + cnt * 19 - 2, cnt);
     }
@@ -5732,23 +5600,22 @@ label_1986_internal:
             break;
         }
         i = list(0, p);
-        prepare_item_image(429, 0);
-        pos(wx + 38, wy + 73 + cnt * 19);
-        gmode(2, inf_tiles, inf_tiles);
-        grotate(1, 0, 960, 0, inf_tiles, inf_tiles);
+
+        draw_item_material(429, wx + 38, wy + 73 + cnt * 19);
+
         s = ioriginalnameref(i);
         cs_list(cs == cnt, s, wx + 84, wy + 66 + cnt * 19 - 1);
         pos(wx + 400, wy + 66 + cnt * 19 + 2);
         if (itemmemory(2, i) == 1)
         {
             color(120, 120, 120);
-            mes(lang(u8"入荷なし"s, u8"-"s));
+            mes(i18n::s.get("core.locale.ui.reserve.not_reserved"));
             color(0, 0, 0);
         }
         else
         {
             color(55, 55, 255);
-            mes(lang(u8"入荷予定"s, u8"Reserved"s));
+            mes(i18n::s.get("core.locale.ui.reserve.reserved"));
             color(0, 0, 0);
         }
     }
@@ -5766,9 +5633,7 @@ label_1986_internal:
         if (p == 289 || p == 732)
         {
             snd(27);
-            txt(lang(
-                u8"「その本は入手できないね」"s,
-                u8"\"Ah, that book is unavailable.\""s));
+            txt(i18n::s.get("core.locale.ui.reserve.unavailable"));
             goto label_1985_internal;
         }
         snd(20);
@@ -5809,210 +5674,26 @@ label_1986_internal:
 
 void list_adventurers()
 {
-    listmax = 0;
-    page = 0;
-    pagesize = 16;
-    cs = 0;
-    cc = 0;
-    cs_bk = -1;
-    for (int cnt = 0; cnt < 56; ++cnt)
-    {
-        if (cdata[cnt].state == 0)
-        {
-            continue;
-        }
-        list(0, listmax) = cnt;
-        list(1, listmax) = -cdata[cnt].fame;
-        ++listmax;
-    }
-    sort_list_by_column1();
-    windowshadow = 1;
-label_1989_internal:
-    cs_bk = -1;
-    pagemax = (listmax - 1) / pagesize;
-    if (page < 0)
-    {
-        page = pagemax;
-    }
-    else if (page > pagemax)
-    {
-        page = 0;
-    }
-label_1990_internal:
-    s(0) = lang(u8"冒険者ランク"s, u8"Adventurer Rank"s);
-    s(1) = strhint2 + strhint3;
-    display_window((windoww - 640) / 2 + inf_screenx, winposy(448), 640, 448);
-    display_topic(
-        lang(u8"冒険者の名前とランク"s, u8"Name and Rank"s), wx + 28, wy + 36);
-    display_topic(lang(u8"名声(Lv)"s, u8"Fame(Lv)"s), wx + 320, wy + 36);
-    display_topic(lang(u8"現在地"s, u8"Location"s), wx + 420, wy + 36);
-    keyrange = 0;
-    for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
-    {
-        p = pagesize * page + cnt;
-        if (p >= listmax)
-        {
-            break;
-        }
-        key_list(cnt) = key_select(cnt);
-        ++keyrange;
-        if (cnt % 2 == 0)
-        {
-            pos(wx + 70, wy + 66 + cnt * 19);
-            gfini(540, 18);
-            gfdec2(12, 14, 16);
-        }
-        display_key(wx + 58, wy + 66 + cnt * 19 - 2, cnt);
-    }
-    font(14 - en * 2);
-    cs_listbk();
-    for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
-    {
-        p = pagesize * page + cnt;
-        if (p >= listmax)
-        {
-            break;
-        }
-        i(0) = cdata[list(0, p)].image % 1000;
-        i(1) = cdata[list(0, p)].image / 1000;
-        chara_preparepic(i, i(1));
-        pos(wx + 40, wy + 74 + cnt * 19 - 8);
-        gmode(2, chipc(2, i), chipc(3, i));
-        grotate(
-            5,
-            0,
-            960,
-            0,
-            chipc(2, i) / (1 + (chipc(3, i) > inf_tiles)),
-            inf_tiles);
-        pos(wx + 84, wy + 66 + cnt * 19 + 2);
-        mes(cnvrank(p + 1) + lang(u8"位"s, ""s));
-        i = list(0, p);
-        s = ""s + cdatan(1, i) + u8" "s + cdatan(0, i);
-        cutname(s, 26);
-        cs_list(cs == cnt, s, wx + 118, wy + 66 + cnt * 19 - 1);
-        s = ""s + cdata[i].fame + u8"("s + cdata[i].level + u8")"s;
-        pos(wx + 402 - strlen_u(s) * 7, wy + 66 + cnt * 19 + 2);
-        mes(s);
-        s = mapname(cdata[i].current_map);
-        if (s == ""s)
-        {
-            s = lang(u8"不明"s, u8"Unknown"s);
-        }
-        if (cdata[i].state == 4)
-        {
-            s = lang(u8"病院"s, u8"Hospital"s);
-        }
-        pos(wx + 435, wy + 66 + cnt * 19 + 2);
-        mes(s);
-    }
-    if (keyrange != 0)
-    {
-        cs_bk = cs;
-    }
-    redraw();
-    await(config::instance().wait1);
-    key_check();
-    cursor_check();
-    ELONA_GET_SELECTED_ITEM(p, 0);
-    if (key == key_pageup)
-    {
-        if (pagemax != 0)
-        {
-            snd(1);
-            ++page;
-            goto label_1989_internal;
-        }
-    }
-    if (key == key_pagedown)
-    {
-        if (pagemax != 0)
-        {
-            snd(1);
-            --page;
-            goto label_1989_internal;
-        }
-    }
-    if (key == key_cancel)
-    {
-        return;
-    }
-    goto label_1990_internal;
+    ui::ui_menu_adventurers().show();
 }
 
 int select_alias(int val0)
 {
-    cs = 0;
-    cs_bk = -1;
-    list(0, 0) = -1;
-    windowshadow = 1;
-    i = 10500;
+    auto result = ui::ui_menu_alias(val0).show();
 
-    while (1)
+    if (result.canceled)
     {
-        if (cs != cs_bk)
-        {
-            s(0) = lang(u8"異名の選択"s, u8"Alias Selection"s);
-            s(1) = strhint3b;
-            display_window(
-                (windoww - 400) / 2 + inf_screenx, winposy(458), 400, 458);
-            display_topic(
-                lang(u8"異名の候補"s, u8"Alias List"s), wx + 28, wy + 30);
-            font(14 - en * 2);
-            for (int cnt = 0; cnt < 17; ++cnt)
-            {
-                key_list(cnt) = key_select(cnt);
-                keyrange = cnt + 1;
-                if (val0 == 3)
-                {
-                    randomize(i + cnt);
-                }
-                if (list(0, 0) == -1)
-                {
-                    listn(0, cnt) = random_title(val0);
-                    list(1, cnt) = i + cnt;
-                }
-                if (cnt == 0)
-                {
-                    listn(0, cnt) = lang(u8"別の名前を考える"s, u8"Reroll"s);
-                }
-                pos(wx + 38, wy + 66 + cnt * 19 - 2);
-                gcopy(3, cnt * 24 + 72, 30, 24, 18);
-                cs_list(
-                    cs == cnt, listn(0, cnt), wx + 64, wy + 66 + cnt * 19 - 1);
-            }
-            i += 17;
-            cs_bk = cs;
-            list(0, 0) = 0;
-        }
-        redraw();
-        await(config::instance().wait1);
-        key_check();
-        cursor_check();
-        ELONA_GET_SELECTED_INDEX_THIS_PAGE(p);
-        if (p != -1)
-        {
-            if (key == key_select(0))
-            {
-                list(0, 0) = -1;
-                snd(103);
-                cs_bk = -1;
-            }
-            else
-            {
-                if (val0 == 3)
-                {
-                    return p;
-                }
-                cmaka = listn(0, p);
-                return 1;
-            }
-        }
-        if (key == key_cancel)
-        {
-            snd(26);
-            return 0;
-        }
+        return 0;
+    }
+
+    if (val0 == 3)
+    {
+        return result.value->seed;
+    }
+    else
+    {
+        cmaka = result.value->alias;
+        return 1;
     }
 }
 
@@ -6048,7 +5729,7 @@ label_22711:
         page = 0;
     }
 label_2272_internal:
-    s(0) = lang(u8"ポストチャート"s, u8"City Chart"s);
+    s(0) = i18n::s.get("core.locale.ui.city_chart.title");
     s(1) = strhint3b;
     display_window((windoww - 580) / 2 + inf_screenx, winposy(400), 580, 400);
     keyrange = 0;
@@ -6059,16 +5740,14 @@ label_2272_internal:
     {
         font(14 - en * 2);
         pos(wx + 40, wy + 50);
-        mes(lang(
-            u8"この場所には経済活動がない。"s,
-            u8"There's no economy running in this area."s));
+        mes(i18n::s.get("core.locale.ui.city_chart.no_economy"));
     }
     else
     {
         display_topic(
-            lang(
-                mapname(adata(16, gdata_current_map)) + u8"のチャート"s,
-                ""s + mapname(adata(16, gdata_current_map)) + u8" City Chart"s),
+            i18n::s.get(
+                "core.locale.ui.city_chart.chart",
+                mapname(adata(16, gdata_current_map))),
             wx + 40,
             wy + 34);
         for (int cnt = 0;; ++cnt)
@@ -6102,12 +5781,11 @@ label_2272_internal:
             ++keyrange;
             display_key(x - 30, y + 21, cnt);
             font(12 + sizefix - en * 2);
-            pos(x - 2, y + jp * 2);
-            bmes(cnven(popostname(p)), 255, 255, 255);
+            bmes(cnven(popostname(p)), x - 2, y + jp * 2);
             font(14 - en * 2);
             if (podata(0 + cnt, city) == 0)
             {
-                s = lang(u8"不在"s, u8"Empty"s);
+                s = i18n::s.get("core.locale.ui.city_chart.empty");
             }
             cs_list(cs == cnt, s, x - 2, y + 20);
             ++j0;
@@ -6265,25 +5943,27 @@ label_2278_internal:
     if (adata(28, gdata_current_map) == 0 || gdata_current_dungeon_level != 1)
     {
         pos(wx + 40, wy + 60);
-        mes(lang(
-            u8"この場所には経済活動がない。"s,
-            u8"There's no economy running in this area."s));
+        mes(i18n::s.get("core.locale.ui.city_chart.no_economy"));
     }
     else
     {
         if (page == 0)
         {
             display_topic(
-                lang(u8"街の概要"s, u8"Town Information"s), wx + 65, wy + 50);
+                i18n::s.get("core.locale.ui.economy.information"),
+                wx + 65,
+                wy + 50);
             display_topic(
-                lang(u8"街の財政"s, u8"Town Finance"s), wx + 65, wy + 150);
+                i18n::s.get("core.locale.ui.economy.finance"),
+                wx + 65,
+                wy + 150);
             font(14 - en * 2);
             x = wx + 50;
             y = wy + 80;
             showeconomy(
                 x,
                 y,
-                lang(u8"人口"s, u8"Population"s),
+                i18n::s.get("core.locale.ui.economy.population"),
                 podata(100, city),
                 podata(101, city));
             x = wx + 50;
@@ -6291,26 +5971,28 @@ label_2278_internal:
             showeconomy(
                 x,
                 y,
-                lang(u8"基本税"s, u8"Basic Tax"s) + u8" ("s + gdata(820)
-                    + u8"%)"s,
+                i18n::s.get("core.locale.ui.economy.basic_tax") + u8" ("s
+                    + gdata(820) + u8"%)"s,
                 podata(102, city),
                 podata(103, city));
             showeconomy(
                 x,
                 y + 16,
-                lang(u8"消費税"s, u8"Excise Tax"s) + u8" ("s + podata(150, city)
-                    + u8"%)"s,
+                i18n::s.get("core.locale.ui.economy.excise_tax") + u8" ("s
+                    + podata(150, city) + u8"%)"s,
                 podata(104, city),
                 podata(105, city));
         }
         if (page == 1)
         {
             display_topic(
-                lang(u8"人口推移の詳細"s, u8"Population Detail"s),
+                i18n::s.get("core.locale.ui.economy.population_detail"),
                 wx + 65,
                 wy + 50);
             display_topic(
-                lang(u8"収支の詳細"s, u8"Finance Detail"s), wx + 65, wy + 200);
+                i18n::s.get("core.locale.ui.economy.finance_detail"),
+                wx + 65,
+                wy + 200);
             font(14 - en * 2);
         }
     }
@@ -6399,22 +6081,24 @@ void show_politics_window()
     curmenu = 2;
     city = adata(28, gdata_current_map);
     list(0, listmax) = 1;
-    listn(0, listmax) = u8"この国の首都は"s + mapname(gdata(815)) + u8"だ。"s;
+    listn(0, listmax) =
+        i18n::s.get("core.locale.ui.politics.name", mapname(gdata(815)));
     ++listmax;
-    if (mdata(6) != 3)
+    if (mdata_map_type != mdata_t::map_type_t::town)
     {
         goto label_2281_internal;
     }
     list(0, listmax) = 0;
-    listn(0, listmax) = u8"この街の消費税は"s + podata(150, city) + u8"%だ。"s;
+    listn(0, listmax) =
+        i18n::s.get("core.locale.ui.politics.taxes", podata(150, city));
     ++listmax;
     p = rnd(1000);
     list(0, listmax) = 0;
     listn(0, listmax) =
-        u8"この街の井戸水の汚染は深刻だ(死者"s + p + u8"人）。"s;
+        i18n::s.get("core.locale.ui.politics.well_pollution", p(0));
     ++listmax;
     list(0, listmax) = 0;
-    listn(0, listmax) = u8"この街では殺人が許される。"s;
+    listn(0, listmax) = i18n::s.get("core.locale.ui.politics.lawless");
     ++listmax;
 label_2281_internal:
     gsel(3);
@@ -6449,16 +6133,15 @@ label_2282_internal:
 label_2283_internal:
     s = strhint2 + strhint3b;
     showscroll(s, wx, wy, ww, wh);
-    display_topic(lang(u8"法律"s, u8"Law"s), wx + 65, wy + 45);
+    display_topic(i18n::s.get("core.locale.ui.politics.law"), wx + 65, wy + 45);
     font(12 + sizefix - en * 2);
     pos(wx + 185, wy + 52);
-    mes(lang(u8"国法"s, u8"Global"s));
-    if (mdata(6) == 3)
+    mes(i18n::s.get("core.locale.ui.politics.global"));
+    if (mdata_map_type == mdata_t::map_type_t::town)
     {
         pos(wx + 285, wy + 52);
-        mes(lang(
-            ""s + mapname(gdata_current_map) + u8"の法"s,
-            u8"Law of "s + mapname(gdata_current_map) + u8")"s));
+        mes(i18n::s.get(
+            "core.locale.ui.politics.law_of", mapname(gdata_current_map)));
     }
     pos(wx + 155, wy + 46);
     gmode(2);
@@ -6479,9 +6162,7 @@ label_2283_internal:
         ++keyrange;
         if (cnt % 2 == 0)
         {
-            pos(wx + 74, wy + 76 + cnt * 19);
-            gfini(365, 18);
-            gfdec2(12, 14, 16);
+            boxf(wx + 74, wy + 76 + cnt * 19, 365, 18, {12, 14, 16, 16});
         }
         display_key(wx + 72, wy + 76 + cnt * 19 - 2, cnt);
     }
@@ -6580,617 +6261,45 @@ label_2283_internal:
     goto label_2283_internal;
 }
 
-void begin_to_believe_god()
+void begin_to_believe_god(int god_id)
 {
-    cs = 0;
-    page = 0;
-    pagemax = 0;
-    pagesize = 16;
-    cs_bk = -1;
-    key = "";
-    objprm(0, ""s);
-    keylog = "";
-    listmax = 0;
-    chatesc = 2;
-    if (!cdata[0].god_id.empty())
+    bool already_believing = !cdata.player().god_id.empty();
+
+    auto result = ui::ui_menu_god(god_id, already_believing).show();
+
+    if (!result.canceled && result.value)
     {
-        if (inv[ci].param1 == 0)
-        {
-            s = lang(u8"信仰を捨てる"s, u8"Abandon God"s);
-        }
-        else
-        {
-            s = lang(
-                i18n::_(u8"god", core_god::int2godid(inv[ci].param1), u8"name")
-                    + u8"に改宗する"s,
-                u8"Convert to "s
-                    + i18n::_(
-                          u8"god",
-                          core_god::int2godid(inv[ci].param1),
-                          u8"name"));
-        }
-        list(0, listmax) = 0;
-        listn(0, listmax) = s;
-        ++listmax;
+        rtval = *result.value;
+        god_proc_switching_penalty();
     }
-    else
-    {
-        list(0, listmax) = 0;
-        listn(0, listmax) = lang(
-            i18n::_(u8"god", core_god::int2godid(inv[ci].param1), u8"name")
-                + u8"を信仰する"s,
-            u8"Believe in "s
-                + i18n::_(
-                      u8"god", core_god::int2godid(inv[ci].param1), u8"name"));
-        ++listmax;
-    }
-    list(0, listmax) = 2;
-    listn(0, listmax) = lang(u8"やめる"s, u8"Cancel"s);
-    ++listmax;
-    snd(62);
-    gsel(4);
-    gmode(0);
-    pos(0, 0);
-    picload(filesystem::dir::graphic() / u8"bg_altar.bmp", 1);
-    pos(0, 0);
-    gzoom(4, 0, 0, 600, 400, windoww, windowh - inf_verh);
-    gsel(0);
-    keyrange = 0;
-    for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
-    {
-        p = pagesize * page + cnt;
-        if (p >= listmax)
-        {
-            break;
-        }
-        key_list(cnt) = key_select(cnt);
-        ++keyrange;
-    }
-label_1887_internal:
-    gmode(0);
-    pos(0, 0);
-    gcopy(4, 0, 0, windoww, windowh - inf_verh);
-    gmode(2);
-    render_hud();
-    dx = 520;
-    dy = 270;
-    window2((windoww - dx) / 2 + inf_screenx, winposy(dy), dx, dy, 4, 6);
-    wx = (windoww - dx) / 2 + inf_screenx;
-    wy = winposy(dy);
-    font(18 - en * 2, snail::font_t::style_t::bold);
-    pos(wx + 20, wy + 20);
-    bmes(
-        lang(u8"《 "s, u8"< "s)
-            + i18n::_(u8"god", core_god::int2godid(inv[ci].param1), u8"name")
-            + lang(u8" 》"s, u8" >"s),
-        255,
-        255,
-        255);
-    get_god_description();
-    gmes(buff, wx + 23, wy + 60, dx - 60, {30, 30, 30}, true);
-    font(14 - en * 2);
-    cs_listbk();
-    for (int cnt = 0, cnt_end = (listmax); cnt < cnt_end; ++cnt)
-    {
-        p = cnt;
-        i = list(0, p);
-        display_key(wx + 50, wy + dy + cnt * 20 - listmax * 20 - 18, cnt);
-        s = listn(0, p);
-        cs_list(cs == cnt, s, wx + 80, wy + dy + cnt * 20 - listmax * 20 - 18);
-    }
-    if (keyrange != 0)
-    {
-        cs_bk = cs;
-    }
-    redraw();
-    await(config::instance().wait1);
-    key_check();
-    cursor_check();
-    ELONA_GET_SELECTED_ITEM(rtval, snd(40));
-    if (chatesc != -1)
-    {
-        if (key == key_cancel)
-        {
-            snd(40);
-            rtval = chatesc;
-        }
-    }
-    if (rtval != -1)
-    {
-        label_1888();
-        return;
-    }
-    goto label_1887_internal;
 }
 
 
-void label_1958()
+void house_board_update_screen()
 {
     screenupdate = -1;
     update_screen();
-    return;
 }
 
 
 
-int ctrl_ally()
+int ctrl_ally(ctrl_ally_operation operation)
 {
-    snd(26);
-    listmax = 0;
-    page = 0;
-    pagesize = 16;
-    cs = 0;
-    cc = 0;
-    cs_bk = -1;
-    if (allyctrl == 2)
+    auto result = ui::ui_menu_ctrl_ally(operation).show();
+
+    if (!result.canceled && result.value)
     {
-        list(0, listmax) = 99;
-        list(1, listmax) = -9999;
-        ++listmax;
+        return *result.value;
     }
-    for (int cnt = 0; cnt < 16; ++cnt)
-    {
-        if (cdata[cnt].state == 0)
-        {
-            continue;
-        }
-        if (allyctrl == 1)
-        {
-            if (cdata[cnt].state == 6)
-            {
-                continue;
-            }
-        }
-        if (allyctrl == 3 || allyctrl == 5)
-        {
-            if (cdata[cnt].state != 1)
-            {
-                continue;
-            }
-        }
-        if (allyctrl == 5)
-        {
-            if (cnt == rc)
-            {
-                continue;
-            }
-        }
-        if (cdata[cnt].current_map != 0)
-        {
-            if (allyctrl == 1 || allyctrl == 2)
-            {
-                continue;
-            }
-        }
-        if (allyctrl != 1)
-        {
-            if (cdata[cnt].is_escorted()
-                || cdata[cnt].is_escorted_in_sub_quest())
-            {
-                continue;
-            }
-        }
-        if (cdata[cnt].is_ridden())
-        {
-            continue;
-        }
-        if (cnt == 0)
-        {
-            continue;
-        }
-        list(0, listmax) = cnt;
-        list(1, listmax) = -cdata[cnt].level;
-        ++listmax;
-    }
-    sort_list_by_column1();
-    if (allyctrl == 2)
-    {
-        p = 0;
-        DIM2(followerin, 16);
-        for (int cnt = 0, cnt_end = (listmax); cnt < cnt_end; ++cnt)
-        {
-            if (cnt == 0)
-            {
-                continue;
-            }
-            i = list(0, cnt);
-            if (cdata[i].state != 6)
-            {
-                followerin(i) = 1;
-                ++p;
-                if (p == arenaop(1))
-                {
-                    break;
-                }
-            }
-        }
-    }
-    windowshadow = 1;
-label_1960_internal:
-    cs_bk = -1;
-    pagemax = (listmax - 1) / pagesize;
-    if (page < 0)
-    {
-        page = pagemax;
-    }
-    else if (page > pagemax)
-    {
-        page = 0;
-        txtnew();
-    }
-    if (allyctrl == 0)
-    {
-        txt(lang(u8"誰を呼び戻す？"s, u8"Call who?"s));
-        s(10) = lang(u8"呼び戻す仲間"s, u8"Ally List"s);
-        s(11) = strhint2 + strhint3;
-        s(12) = lang(u8"仲間の情報"s, u8"Name"s);
-        s(13) = lang(u8"状態"s, u8"Status"s);
-        x = 0;
-    }
-    if (allyctrl == 1)
-    {
-        txt(lang(u8"誰を売り飛ばす？"s, u8"Sell who?"s));
-        s(10) = lang(u8"売り飛ばす仲間"s, u8"Ally List"s);
-        s(11) = strhint2 + strhint3;
-        s(12) = lang(u8"仲間の情報"s, u8"Name"s);
-        s(13) = lang(u8"値段"s, u8"Value"s);
-        x = 20;
-    }
-    if (allyctrl == 2)
-    {
-        i = 0;
-        for (int cnt = 0; cnt < 16; ++cnt)
-        {
-            i += followerin(cnt) == 1;
-        }
-        if (i < arenaop(1))
-        {
-            txtef(3);
-        }
-        else
-        {
-            txtef(4);
-        }
-        txt(lang(u8"試合の規定人数: "s, u8"Participant: "s) + i + u8" / "s
-            + arenaop(1));
-        s(10) = lang(u8"出場する仲間"s, u8"Ally List"s);
-        s(11) = strhint2 + strhint3;
-        s(12) = lang(u8"仲間の情報"s, u8"Name"s);
-        s(13) = lang(u8"状態"s, u8"Status"s);
-        x = 20;
-    }
-    if (allyctrl == 3)
-    {
-        if (adata(16, gdata_current_map) == 102)
-        {
-            txt(lang(
-                u8"誰を店長にする？"s, u8"Who takes the role of shopkeeper?"s));
-            s(10) = lang(u8"店長候補"s, u8"Ally List"s);
-            s(11) = strhint2 + strhint3;
-            s(12) = lang(u8"仲間の情報"s, u8"Name"s);
-            s(13) = lang(u8"魅力/交渉"s, u8"CHR/Negotiation"s);
-        }
-        if (adata(16, gdata_current_map) == 31)
-        {
-            txt(lang(
-                u8"誰をブリーダーにする？"s,
-                u8"Who takes the role of breeder?"s));
-            s(10) = lang(u8"ブリーダー候補"s, u8"Ally List"s);
-            s(11) = strhint2 + strhint3;
-            s(12) = lang(u8"仲間の情報"s, u8"Name"s);
-            s(13) = lang(u8"繁殖力"s, u8"Breed Power"s);
-        }
-        if (gdata_current_map == 7)
-        {
-            txt(lang(u8"誰を滞在させる？"s, u8"Who stays in your home?"s));
-            s(10) = lang(u8"滞在状態の変更"s, u8"Ally List"s);
-            s(11) = strhint2 + strhint3;
-            s(12) = lang(u8"仲間の情報"s, u8"Name"s);
-            s(13) = lang(u8"状態"s, u8"Status"s);
-        }
-        x = 20;
-    }
-    if (allyctrl == 4 || allyctrl == 5)
-    {
-        txt(lang(u8"対象にする仲間は？"s, u8"Who is the subject?"s));
-        s(10) = lang(u8"仲間"s, u8"Ally List"s);
-        s(11) = strhint2 + strhint3;
-        s(12) = lang(u8"仲間の情報"s, u8"Name"s);
-        s(13) = lang(u8"状態"s, u8"Status"s);
-        if (allyctrl == 5)
-        {
-            if (rc != 0)
-            {
-                s(13) = lang(u8"獲得部位/技能"s, u8"Body/Skill"s);
-            }
-        }
-        x = 0;
-    }
-label_1961_internal:
-    s(0) = s(10);
-    s(1) = s(11);
-    display_window((windoww - 620) / 2 + inf_screenx, winposy(400), 620, 400);
-    display_topic(s(12), wx + 28, wy + 36);
-    display_topic(s(13), wx + 350 + x, wy + 36);
-    keyrange = 0;
-    for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
-    {
-        p = pagesize * page + cnt;
-        if (p >= listmax)
-        {
-            break;
-        }
-        key_list(cnt) = key_select(cnt);
-        ++keyrange;
-        if (cnt % 2 == 0)
-        {
-            pos(wx + 70, wy + 66 + cnt * 19);
-            gfini(500, 18);
-            gfdec2(12, 14, 16);
-        }
-        display_key(wx + 58, wy + 66 + cnt * 19 - 2, cnt);
-    }
-    font(14 - en * 2);
-    cs_listbk();
-    for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
-    {
-        p = pagesize * page + cnt;
-        if (p >= listmax)
-        {
-            break;
-        }
-        if (list(0, p) != 99)
-        {
-            i(0) = cdata[list(0, p)].image % 1000;
-            i(1) = cdata[list(0, p)].image / 1000;
-            chara_preparepic(i, i(1));
-            pos(wx + 40, wy + 74 + cnt * 19 - 8);
-            gmode(2, chipc(2, i), chipc(3, i));
-            grotate(
-                5,
-                0,
-                960,
-                0,
-                chipc(2, i) / (1 + (chipc(3, i) > inf_tiles)),
-                inf_tiles);
-        }
-        i = list(0, p);
-        if (i == 99)
-        {
-            cs_list(
-                cs == cnt,
-                lang(u8"決定"s, u8"Proceed"s),
-                wx + 84,
-                wy + 66 + cnt * 19 - 1);
-            continue;
-        }
-        if (allyctrl == 0 || allyctrl == 2 || allyctrl == 3 || allyctrl == 4
-            || allyctrl == 5)
-        {
-            s = ""s + cdatan(1, i) + u8" "s + cdatan(0, i);
-            if (cdata[i].current_map != 0)
-            {
-                s = s + u8"("s + mapname(cdata[i].current_map) + u8")"s;
-            }
-            if (allyctrl == 2)
-            {
-                if (followerin(i) == 1)
-                {
-                    s += lang(u8" *出場* "s, u8" *In* "s);
-                }
-            }
-            int n = 0;
-            if (allyctrl == 5)
-            {
-                if (cdata[i].level > sdata(151, 0) + 5)
-                {
-                    n = 3;
-                }
-            }
-            cs_list(cs == cnt, s, wx + 84, wy + 66 + cnt * 19 - 1, 0, n);
-            if (allyctrl != 3 || (allyctrl == 3 && gdata_current_map == 7))
-            {
-                s = u8"Lv."s + cdata[i].level + u8" "s;
-                if (cdata[i].state == 6)
-                {
-                    s += lang(u8"(死んでいる)"s, u8"(Dead"s);
-                }
-                if (cdata[i].state == 7)
-                {
-                    if (allyctrl == 0)
-                    {
-                        s += lang(u8"(待機している)"s, u8"(Waiting)"s);
-                    }
-                    else
-                    {
-                        s += u8"(Hp: "s + cdata[i].hp * 100 / cdata[i].max_hp
-                            + u8"%) "s + lang(u8"待機"s, u8"Waiting"s);
-                    }
-                }
-                if (cdata[i].state == 1)
-                {
-                    if (allyctrl == 0)
-                    {
-                        s += lang(u8"(生きている)"s, u8"(Alive)"s);
-                    }
-                    else
-                    {
-                        s += u8"(Hp: "s + cdata[i].hp * 100 / cdata[i].max_hp
-                            + u8"%)"s;
-                    }
-                }
-            }
-            else
-            {
-                if (adata(16, gdata_current_map) == 102)
-                {
-                    s = u8"   "s + sdata(17, i) + u8" / " + sdata(156, i);
-                }
-                if (adata(16, gdata_current_map) == 31)
-                {
-                    s = u8"   "s + cbreeder(i);
-                }
-            }
-            if (allyctrl == 5)
-            {
-                if (rc != 0)
-                {
-                    tc = i;
-                    {
-                        int stat = transplant_body_parts();
-                        if (stat == -1)
-                        {
-                            s = lang(u8"なし"s, u8"None"s);
-                        }
-                        else
-                        {
-                            s = i18n::_(u8"ui", u8"body_part", u8"_"s + rtval);
-                        }
-                    }
-                    s += u8"/"s;
-                    {
-                        int stat = gain_skills_by_geen_engineering();
-                        if (stat == 0)
-                        {
-                            s += lang(u8"なし"s, u8"None"s);
-                        }
-                        else
-                        {
-                            s += ""s
-                                + i18n::_(
-                                      u8"ability",
-                                      std::to_string(rtval),
-                                      u8"name");
-                            if (rtval(1) != -1)
-                            {
-                                s += u8", "s
-                                    + i18n::_(
-                                          u8"ability",
-                                          std::to_string(rtval(1)),
-                                          u8"name");
-                            }
-                        }
-                    }
-                }
-            }
-            pos(wx + 370, wy + 66 + cnt * 19 + 2);
-            mes(s);
-        }
-        if (allyctrl == 1)
-        {
-            s = ""s + cdatan(1, i) + u8" "s + cdatan(0, i);
-            s += u8" Lv."s + cdata[i].level;
-            cs_list(cs == cnt, s, wx + 84, wy + 66 + cnt * 19 - 1);
-            s = ""s + calcslavevalue(i) * 2 / 3 + i18n::_(u8"ui", u8"gold");
-            pos(wx + 390, wy + 66 + cnt * 19 + 2);
-            mes(s);
-        }
-    }
-    if (keyrange != 0)
-    {
-        cs_bk = cs;
-    }
-    redraw();
-    await(config::instance().wait1);
-    key_check();
-    cursor_check();
-    ELONA_GET_SELECTED_ITEM(p, 0);
-    if (p != -1)
-    {
-        if (allyctrl == 5)
-        {
-            if (cdata[p].level > sdata(151, 0) + 5)
-            {
-                snd(27);
-                txt(lang(
-                    u8"遺伝子学のスキルが足りない。"s,
-                    u8"You need to be a better gene engineer."s));
-                goto label_1960_internal;
-            }
-        }
-        if (allyctrl == 2)
-        {
-            i = 0;
-            for (int cnt = 0; cnt < 16; ++cnt)
-            {
-                if (followerin(cnt) == 1)
-                {
-                    ++i;
-                }
-            }
-            if (p == 99)
-            {
-                if (i == 0)
-                {
-                    txt(lang(
-                        u8"最低でも一人の参加者が必要だ。"s,
-                        u8"You need at least 1 pet to start the battle."s));
-                    snd(27);
-                    goto label_1961_internal;
-                }
-                snd(20);
-                return 1;
-            }
-            if (cdata[p].state == 6)
-            {
-                txt(lang(
-                    u8"死んでいる。"s, he(p) + u8" "s + is(p) + u8" dead."s));
-                snd(27);
-                goto label_1961_internal;
-            }
-            if (followerin(p) == 0)
-            {
-                if (i >= arenaop(1))
-                {
-                    snd(27);
-                    txt(lang(
-                        u8"参加枠を超えている。"s,
-                        u8"Too many participants."s));
-                    goto label_1961_internal;
-                }
-                else
-                {
-                    followerin(p) = 1;
-                    snd(20);
-                }
-            }
-            else
-            {
-                followerin(p) = 0;
-                snd(20);
-            }
-            goto label_1960_internal;
-        }
-        return p;
-    }
-    if (key == key_pageup)
-    {
-        if (pagemax != 0)
-        {
-            snd(1);
-            ++page;
-            goto label_1960_internal;
-        }
-    }
-    if (key == key_pagedown)
-    {
-        if (pagemax != 0)
-        {
-            snd(1);
-            --page;
-            goto label_1960_internal;
-        }
-    }
-    if (key == key_cancel)
+    else
     {
         return -1;
     }
-    goto label_1961_internal;
 }
 
 
 
-void label_1964()
+void screen_analyze_self()
 {
     // TODO: untranslated
     if (rc < 0)
@@ -7211,16 +6320,17 @@ void label_1964()
     buff = "";
     notesel(buff);
     chara_delete(56);
-    cdata[56].piety_point = cdata[0].piety_point;
-    cdata[56].god_id = cdata[0].god_id;
+    cdata.tmp().piety_point = cdata.player().piety_point;
+    cdata.tmp().god_id = cdata.player().god_id;
     for (int cnt = 0; cnt < 600; ++cnt)
     {
         sdata(cnt, rc) = 1;
     }
     apply_god_blessing(56);
-    if (!cdata[0].god_id.empty())
+    if (!cdata.player().god_id.empty())
     {
-        buff += u8"<title1>◆ "s + i18n::_(u8"god", cdata[0].god_id, u8"name")
+        buff += u8"<title1>◆ "s
+            + i18n::_(u8"god", cdata.player().god_id, u8"name")
             + u8"による能力の恩恵<def>\n"s;
         for (int cnt = 0; cnt < 600; ++cnt)
         {
@@ -7245,10 +6355,10 @@ label_1965_internal:
     {
         page = 0;
     }
-    s(0) = u8"自己の分析"s;
+    s(0) = lang(u8"自己の分析", u8"Analyze Self");
     s(1) = strhint2 + strhint3b;
     display_window((windoww - 400) / 2 + inf_screenx, winposy(448), 400, 448);
-    s = u8"分析結果"s;
+    s = lang(u8"分析結果", u8"Analysis Result");
     display_topic(s, wx + 28, wy + 36);
     font(14 - en * 2);
     for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
@@ -7296,244 +6406,52 @@ label_1966_internal:
 
 int change_npc_tone()
 {
-    load_background_variants(4);
-    gsel(0);
-    listmax = 0;
-    page = 0;
-    pagesize = 16;
-    cs = 0;
-    cc = 0;
-    cs_bk = -1;
-    list(0, 0) = -999;
-    listn(0, 0) = lang(u8"デフォルトの口調"s, u8"Default Tone"s);
-    ++listmax;
-    const auto base_dir = filesystem::dir::user() / u8"talk";
-    for (const auto& entry :
-         filesystem::dir_entries{base_dir,
-                                 filesystem::dir_entries::type::file,
-                                 std::regex{u8R"(.*\.txt)"}})
-    {
-        list(0, listmax) = listmax;
-        listn(0, listmax) =
-            filesystem::to_utf8_path(fs::relative(entry.path(), base_dir));
-        ++listmax;
-    }
-    windowshadow = 1;
-label_2015_internal:
-    cs_bk = -1;
-    pagemax = (listmax - 1) / pagesize;
-    if (page < 0)
-    {
-        page = pagemax;
-    }
-    else if (page > pagemax)
-    {
-        page = 0;
-    }
-label_2016_internal:
-    s(0) = lang(u8"口調一覧"s, u8"Tone of Voice"s);
-    s(1) = lang(u8"決定 [口調の変更]  "s, u8"Enter [Change Tone] "s) + strhint2
-        + strhint3;
-    display_window((windoww - 500) / 2 + inf_screenx, winposy(400), 500, 400);
-    x = ww / 5 * 3;
-    y = wh - 80;
-    gmode(4, 180, 300, 50);
-    pos(wx + ww / 3 * 2, wy + wh / 2);
-    grotate(4, cmbg / 4 % 4 * 180, cmbg / 4 / 4 % 2 * 300, 0, x, y);
-    gmode(2);
-    display_topic(lang(u8"題名"s, u8"Title"s), wx + 28, wy + 36);
-    keyrange = 0;
-    for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
-    {
-        p = pagesize * page + cnt;
-        if (p >= listmax)
-        {
-            break;
-        }
-        key_list(cnt) = key_select(cnt);
-        ++keyrange;
-        if (cnt % 2 == 0)
-        {
-            pos(wx + 70, wy + 66 + cnt * 19);
-            gfini(ww - 100, 18);
-            gfdec2(12, 14, 16);
-        }
-        display_key(wx + 58, wy + 66 + cnt * 19 - 2, cnt);
-    }
-    gmode(2);
-    font(14 - en * 2);
-    cs_listbk();
-    for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
-    {
-        p = pagesize * page + cnt;
-        if (p >= listmax)
-        {
-            break;
-        }
-        i = list(0, p);
-        s = ""s + listn(0, p);
-        cs_list(cs == cnt, s, wx + 138, wy + 66 + cnt * 19 - 1);
-    }
-    if (keyrange != 0)
-    {
-        cs_bk = cs;
-    }
-    redraw();
-    await(config::instance().wait1);
-    key_check();
-    cursor_check();
-    ELONA_GET_SELECTED_ITEM(p, cs = i);
-    if (p != -1)
-    {
-        snd(20);
-        txt(lang(
-            name(tc) + u8"の口調が変わった気がする。"s,
-            name(tc) + u8" is somewhat different."s));
-        if (p == -999)
-        {
-            cdata[tc].has_custom_talk() = false;
-            cdatan(4, tc) = "";
-            return 1;
-        }
-        cdata[tc].has_custom_talk() = true;
-        cdatan(4, tc) = listn(0, p);
-        return 1;
-    }
-    if (key == key_pageup)
-    {
-        if (pagemax != 0)
-        {
-            snd(1);
-            ++page;
-            goto label_2015_internal;
-        }
-    }
-    if (key == key_pagedown)
-    {
-        if (pagemax != 0)
-        {
-            snd(1);
-            --page;
-            goto label_2015_internal;
-        }
-    }
-    if (key == key_cancel)
+    auto result = ui::ui_menu_npc_tone().show();
+
+    if (result.canceled)
     {
         return -1;
     }
-    goto label_2016_internal;
+
+    snd(20);
+    txt(i18n::s.get(
+        "core.locale.action.interact.change_tone.is_somewhat_different",
+        cdata[tc]));
+
+    if (result.value)
+    {
+        cdata[tc].has_custom_talk() = true;
+        cdatan(4, tc) = *result.value;
+    }
+    else
+    {
+        cdata[tc].has_custom_talk() = false;
+        cdatan(4, tc) = "";
+    }
+
+    return 1;
 }
 
 
 
-void label_2022()
+void show_book_window()
 {
-    snd(59);
-    gsel(4);
-    pos(0, 0);
-    picload(filesystem::dir::graphic() / u8"book.bmp", 1);
-    gsel(0);
-    notesel(buff);
-    {
-        buff(0).clear();
-        std::ifstream in{(filesystem::dir::data() / u8"book.txt").native(),
-                         std::ios::binary};
-        std::string tmp;
-        while (std::getline(in, tmp))
-        {
-            buff(0) += tmp + '\n';
-        }
-    }
-    p = instr(buff, 0, ""s + inv[ci].param1 + u8","s + lang(u8"JP"s, u8"EN"s));
-    if (p == -1)
-    {
-        return;
-    }
-    buff = strmid(buff, p, instr(buff, p, u8"%END"s));
-    notedel(0);
-    listmax = 0;
-    page = 0;
-    pagesize = 40;
-    cs = 0;
-    cc = 0;
-    listmax = noteinfo();
-    keyrange = 0;
-    key_list(0) = key_enter;
-label_2023_internal:
-    cs_bk = -1;
-    pagemax = (listmax - 1) / pagesize;
-    if (page < 0)
-    {
-        page = pagemax;
-    }
-    else if (page > pagemax)
-    {
-        page = 0;
-    }
-    wx = (windoww - 720) / 2 + inf_screenx;
-    wy = winposy(468);
-    pos(wx, wy);
-    gcopy(4, 0, 0, 736, 448);
-    for (int cnt = 0, cnt_end = (pagesize); cnt < cnt_end; ++cnt)
-    {
-        p = pagesize * page + cnt;
-        if (p >= listmax)
-        {
-            break;
-        }
-        x = wx + 80 + cnt / 20 * 306;
-        y = wy + 45 + cnt % 20 * 16;
-        noteget(s, p);
-        if (p == 0)
-        {
-            font(12 + sizefix - en * 2, snail::font_t::style_t::bold);
-        }
-        if (p == 1)
-        {
-            font(10 + sizefix - en * 2);
-        }
-        if (p > 2)
-        {
-            font(12 + sizefix - en * 2);
-        }
-        pos(x, y);
-        mes(s);
-        if (p % 20 == 0)
-        {
-            font(12 + sizefix - en * 2, snail::font_t::style_t::bold);
-            pos(x + 90, y + 330);
-            mes(u8"- "s + (p / 20 + 1) + u8" -"s);
-        }
-    }
-label_2024_internal:
-    redraw();
-    await(config::instance().wait1);
-    key_check();
-    cursor_check();
-    if (key == key_pageup)
-    {
-        if (pagemax != 0)
-        {
-            snd(71);
-            ++page;
-            goto label_2023_internal;
-        }
-    }
-    if (key == key_pagedown)
-    {
-        if (pagemax != 0)
-        {
-            snd(71);
-            --page;
-            goto label_2023_internal;
-        }
-    }
-    if (key == key_cancel || key == key_enter)
-    {
-        update_screen();
-        return;
-    }
-    goto label_2024_internal;
+    ui::ui_menu_book(inv[ci].param1).show();
 }
+
+
+void item_show_description()
+{
+    if (ci < 0)
+    {
+        dialog(i18n::s.get("core.locale.item.desc.window.error"));
+        return;
+    }
+
+    ui::ui_menu_item_desc(inv[ci]).show();
+
+    returnfromidentify = 1;
+}
+
 
 } // namespace elona

@@ -2,8 +2,10 @@
 #include "audio.hpp"
 #include "blending.hpp"
 #include "config.hpp"
+#include "draw.hpp"
 #include "elona.hpp"
 #include "enums.hpp"
+#include "snail/android.hpp"
 #include "ui.hpp"
 #include "variables.hpp"
 
@@ -34,23 +36,14 @@ int show_prompt(int x, int y, int width, show_prompt_type type, int val4)
         {
             promptl(1, i) = key_select(i);
         }
-        pos(i * 24 + 624, 30);
-        gcopy(3, 0, 30, 24, 18);
-        pos(i * 24 + 629, 31);
-        color(50, 60, 80);
-        bmes(promptl(1, i), 250, 240, 230);
-        color(0, 0, 0);
+        draw("select_key", i * 24 + 624, 30);
+        bmes(promptl(1, i), i * 24 + 629, 31, {250, 240, 230}, {50, 60, 80});
     }
 
     gsel(0);
     sx = x - width / 2;
     sy = y - promptmax * 10;
-    boxf(
-        sx + 12,
-        sy + 12,
-        sx + width - 5,
-        sy + promptmax * 20 + 37,
-        snail::color{60, 60, 60, 128});
+    boxf(sx + 12, sy + 12, width - 17, promptmax * 20 + 25, {60, 60, 60, 128});
     keyhalt = 1;
 
     if (type == show_prompt_type::with_number)
@@ -65,9 +58,7 @@ int show_prompt(int x, int y, int width, show_prompt_type type, int val4)
         {
             dx += std::to_string(val5).size() * 8;
         }
-        pos(dx(1) + sx + 24, dy + 4);
-        gfini(dx - 42, 35);
-        gfdec(60, 60, 60);
+        boxf(dx(1) + sx + 24, dy + 4, dx - 42, 35, {0, 0, 0, 127});
     }
 
     while (1)
@@ -76,8 +67,7 @@ int show_prompt(int x, int y, int width, show_prompt_type type, int val4)
         if (type == show_prompt_type::with_number)
         {
             window2(dx(1) + sx + 20, dy, dx - 40, 36, 0, 2);
-            pos(dx(1) + sx + dx / 2 - 56, dy - 32);
-            gcopy(3, 128, 288, 128, 32);
+            draw("label_input", dx(1) + sx + dx / 2 - 56, dy - 32);
             pos(dx(1) + sx + 28, dy + 4);
             gcopy(3, 312, 336, 24, 24);
             pos(dx(1) + sx + dx - 51, dy + 4);
@@ -165,30 +155,40 @@ int show_prompt(int x, int y, int width, show_prompt_type type, int val4)
 
 
 
-void input_number_dialog(int x, int y, int max_number)
+void input_number_dialog(int x, int y, int max_number, int initial_number)
 {
     snd(26);
     dx = 8 * 16 + 60;
     font(16 - en * 2);
 
-    int number = max_number;
+    if (max_number < 1)
+    {
+        max_number = 1;
+    }
+    int number;
+    if (initial_number != 0)
+    {
+        number = clamp(initial_number, 1, max_number);
+    }
+    else
+    {
+        number = max_number;
+    }
     if (strlen_u(std::to_string(max_number)) >= 3)
     {
         dx += strlen_u(std::to_string(max_number)) * 8;
     }
-    pos(x + 24, y + 4);
-    gfini(dx - 42, 35);
-    gfdec(60, 60, 60);
-    while (1)
+    boxf(x + 24, y + 4, dx - 42, 35, {0, 0, 0, 127});
+    inputlog = std::to_string(number);
+    while (true)
     {
         window2(x + 20, y, dx - 40, 36, 0, 2);
-        pos(x + dx / 2 - 56, y - 32);
-        gcopy(3, 128, 288, 128, 32);
+        draw("label_input", x + dx / 2 - 56, y - 32);
         pos(x + 28, y + 4);
         gcopy(3, 312, 336, 24, 24);
         pos(x + dx - 51, y + 4);
         gcopy(3, 336, 336, 24, 24);
-        const auto inputlog2 = inputlog + u8"(" + max_number + u8")";
+        const std::string inputlog2 = inputlog + u8"(" + max_number + u8")";
         pos(x + dx - 70 - strlen_u(inputlog2) * 8 + 8, y + 11);
         color(255, 255, 255);
         mes(inputlog2);
@@ -238,39 +238,39 @@ void input_number_dialog(int x, int y, int max_number)
         {
             snd(5);
             number -= 100;
-            if (number < 1)
+            while (number < 1)
             {
-                number = 1;
+                number += max_number;
             }
         }
         if (key == key_northeast)
         {
             snd(5);
             number += 100;
-            if (number > max_number)
+            while (number > max_number)
             {
-                number = max_number;
+                number -= max_number;
             }
         }
         if (key == key_southwest)
         {
             snd(5);
             number -= 10;
-            if (number < 1)
+            while (number < 1)
             {
-                number = 1;
+                number += max_number;
             }
         }
         if (key == key_southeast)
         {
             snd(5);
             number += 10;
-            if (number > max_number)
+            while (number > max_number)
             {
-                number = max_number;
+                number -= max_number;
             }
         }
-        inputlog = ""s + number;
+        inputlog = std::to_string(number);
     }
     if (f == -1)
     {
@@ -300,20 +300,14 @@ bool input_text_dialog(
     pos(x, y);
     inputlog = "";
     mesbox(inputlog, true);
-    pos(x + 4, y + 4);
-    gfini(dx - 1, 35);
-    gfdec(60, 60, 60);
+    boxf(x + 4, y + 4, dx - 1, 35, {0, 0, 0, 127});
 
     notesel(inputlog);
     p(1) = 2;
 
     for (int cnt = 0;; ++cnt)
     {
-        if (ginfo(2) == 0)
-        {
-            objsel(1);
-        }
-        else
+        if (ginfo(2) != 0)
         {
             objprm(1, ""s);
             inputlog = "";
@@ -323,17 +317,15 @@ bool input_text_dialog(
         }
         await(config::instance().wait1);
         window2(x, y, dx, 36, 0, 2);
-        pos(x + dx / 2 - 60, y - 32);
-        gcopy(3, 128, 288, 128, 32);
+        draw("label_input", x + dx / 2 - 60, y - 32);
 
-        pos(x + 8, y + 4);
         if (imeget() != 0)
         {
-            gcopy(3, 48, 336, 24, 24);
+            draw("ime_status_japanese", x + 8, y + 4);
         }
         else
         {
-            gcopy(3, 24, 336, 24, 24);
+            draw("ime_status_english", x + 8, y + 4);
         }
         apledit(p(2), 2, 0);
         if (p(2) > val2 * (1 + en) - 2)
@@ -407,9 +399,8 @@ bool input_text_dialog(
             }
         }
 
-        gmode(4, -1, -1, p(1) / 2 + 50);
-        pos(x + 34 + p(4) * 8, y + 5);
-        gcopy(3, 0, 336, 12, 24);
+        gmode(4, p(1) / 2 + 50);
+        draw("input_caret", x + 34 + p(4) * 8, y + 5);
         gmode(2);
         color(255, 255, 255);
         pos(x + 36, y + 9);
@@ -419,29 +410,53 @@ bool input_text_dialog(
         redraw();
     }
     gmode(2);
-    clrobj(1);
     if (en)
     {
         inputlog = strutil::replace(inputlog, u8"\"", u8"'");
     }
-    rm_crlf(inputlog);
+    inputlog = strutil::remove_line_ending(inputlog);
     onkey_0();
 
     return canceled;
 }
 
 
-void key_check(int prm_299)
+bool is_keypress_delayed(int held_frames, int keywait, int initial_keywait)
+{
+    if (held_frames < initial_keywait)
+    {
+        if (held_frames == 0)
+        {
+            return false;
+        }
+    }
+    else if (held_frames % keywait == 0)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+void key_check(key_wait_delay_t delay_type)
 {
     static int prevjoy_at_m19{};
     bool delay_keypress = false;
     bool delay_enter = false;
-    static int keywait_enter{};
+    static int enter_held_frames{};
+    static int shortcut_held_frames{};
 
     if (msgalert == 1)
     {
         if (config::instance().alert > 1)
         {
+            if (config::instance().get<bool>("core.config.android.vibrate"))
+            {
+                int duration = config::instance().get<int>(
+                    "core.config.android.vibrate_duration");
+                snail::android::vibrate(static_cast<long>(duration * 25));
+            }
+
             for (int i = 0; i < config::instance().alert; ++i)
             {
                 await(config::instance().wait1);
@@ -495,10 +510,8 @@ void key_check(int prm_299)
     mousel = 0;
     key_tab = 0;
     key_escape = 0;
-    int p_at_m19 = stick(stick_key::left
-                         | stick_key::up
-                         | stick_key::right
-                         | stick_key::down);
+    int p_at_m19 = stick(
+        stick_key::left | stick_key::up | stick_key::right | stick_key::down);
     if (p_at_m19 != 0)
     {
         if (p_at_m19 == stick_key::escape)
@@ -519,62 +532,59 @@ void key_check(int prm_299)
     {
         if (getkey(snail::key::home))
         {
-            p_at_m19 = 3;
+            p_at_m19 = stick_key::up | stick_key::left;
         }
         else if (getkey(snail::key::pageup))
         {
-            p_at_m19 = 6;
+            p_at_m19 = stick_key::up | stick_key::right;
         }
         else if (getkey(snail::key::end))
         {
-            p_at_m19 = 9;
+            p_at_m19 = stick_key::down | stick_key::left;
         }
         else if (getkey(snail::key::pagedown))
         {
-            p_at_m19 = 12;
-        }
-        else if (getkey(snail::key::clear))
-        {
-            key = key_wait;
+            p_at_m19 = stick_key::down | stick_key::right;
         }
 
         // Handle the case of the current key matching the movement
         // keybindings set in the user's config.
         else if (key == key_west)
         {
-            p_at_m19 = 1;
+            p_at_m19 = stick_key::left;
         }
         else if (key == key_north)
         {
-            p_at_m19 = 2;
+            p_at_m19 = stick_key::up;
         }
         else if (key == key_east)
         {
-            p_at_m19 = 4;
+            p_at_m19 = stick_key::right;
         }
         else if (key == key_south)
         {
-            p_at_m19 = 8;
+            p_at_m19 = stick_key::down;
         }
         else if (key == key_northwest)
         {
-            p_at_m19 = 3;
+            p_at_m19 = stick_key::up | stick_key::left;
         }
         else if (key == key_northeast)
         {
-            p_at_m19 = 6;
+            p_at_m19 = stick_key::up | stick_key::right;
         }
         else if (key == key_southwest)
         {
-            p_at_m19 = 9;
+            p_at_m19 = stick_key::down | stick_key::left;
         }
         else if (key == key_southeast)
         {
-            p_at_m19 = 12;
+            p_at_m19 = stick_key::down | stick_key::right;
         }
-        else if (key == key_southeast)
+        else if (key == key_wait)
         {
-            p_at_m19 = 12;
+            p_at_m19 = 0;
+            delay_keypress = true;
         }
     }
     if (getkey(snail::key::ctrl))
@@ -609,14 +619,16 @@ void key_check(int prm_299)
         key_shift = 0;
     }
 
-    if (snail::input::instance().is_pressed(snail::key::enter))
+    if (key == key_enter
+        || snail::input::instance().is_pressed(snail::key::enter)
+        || snail::input::instance().is_pressed(snail::key::keypad_enter))
     {
         key = key_enter;
         delay_enter = true;
     }
     else
     {
-        keywait_enter = 0;
+        enter_held_frames = 0;
     }
 
     if (config::instance().joypad)
@@ -666,7 +678,7 @@ void key_check(int prm_299)
                         key = key_cancel;
                         key_escape = 1;
                     }
-                    if (prm_299 == 0)
+                    if (delay_type == key_wait_delay_t::always)
                     {
                         int b_at_m19 = 0;
                         if (key == key_fire)
@@ -702,7 +714,7 @@ void key_check(int prm_299)
         {
             prevjoy_at_m19 = -1;
         }
-        else if (prm_299 == 2)
+        else if (delay_type == key_wait_delay_t::none)
         {
             return;
         }
@@ -757,24 +769,29 @@ void key_check(int prm_299)
             delay_keypress = true;
         }
     }
-    if (p_at_m19 == 3)
+    if (p_at_m19 == (stick_key::up | stick_key::left))
     {
         key = key_northwest;
         delay_keypress = true;
     }
-    if (p_at_m19 == 6)
+    if (p_at_m19 == (stick_key::up | stick_key::right))
     {
         key = key_northeast;
         delay_keypress = true;
     }
-    if (p_at_m19 == 9)
+    if (p_at_m19 == (stick_key::down | stick_key::left))
     {
         key = key_southwest;
         delay_keypress = true;
     }
-    if (p_at_m19 == 12)
+    if (p_at_m19 == (stick_key::down | stick_key::right))
     {
         key = key_southeast;
+        delay_keypress = true;
+    }
+    if (getkey(snail::key::clear))
+    {
+        key = key_wait;
         delay_keypress = true;
     }
 
@@ -827,13 +844,13 @@ void key_check(int prm_299)
         key = u8"F12";
     }
 
-    if (prm_299 == 2)
+    if (delay_type == key_wait_delay_t::none)
     {
         return;
     }
     if (delay_keypress)
     {
-        if (prm_299 == 1)
+        if (delay_type == key_wait_delay_t::walk_run)
         {
             if (keybd_attacking != 0)
             {
@@ -866,7 +883,7 @@ void key_check(int prm_299)
             }
             else if (p_at_m19 == 0)
             {
-                if (keybd_wait < 10)
+                if (keybd_wait < 20)
                 {
                     if (keybd_wait != 0)
                     {
@@ -886,18 +903,18 @@ void key_check(int prm_299)
                 running = 1;
             }
         }
-        // Press the key every 7 frames twice.
-        else if (keybd_wait < 14)
+        else if (
+            keybd_wait < config::instance().select_fast_start
+                * config::instance().select_wait)
         {
-            if (keybd_wait != 0 && keybd_wait != 7)
+            if (keybd_wait % config::instance().select_wait != 0)
             {
                 key = "";
             }
         }
-        // Press the key every other frame.
         else if (keybd_wait < 1000)
         {
-            if (keybd_wait % 2 != 1)
+            if (keybd_wait % config::instance().select_fast_wait != 0)
             {
                 key = ""s;
             }
@@ -913,22 +930,24 @@ void key_check(int prm_299)
 
     if (delay_enter)
     {
-        if (keywait_enter < 20)
+        if (is_keypress_delayed(enter_held_frames, 1, 20))
         {
-            if (keywait_enter != 0)
-            {
-                key = "";
-            }
+            key = "";
         }
-        keywait_enter++;
+        enter_held_frames++;
     }
 
     bool shortcut{};
+    int shortcut_delay = config::instance().keywait;
+    if (delay_type == key_wait_delay_t::walk_run)
+    {
+        shortcut_delay = 1;
+    }
+
     for (int i = 0; i < 10; ++i)
     {
         const auto pressed = snail::input::instance().is_pressed(
-            snail::key(int(snail::key::key_0) + i),
-            prm_299 == 1 ? 1 : config::instance().keywait);
+            snail::key(int(snail::key::key_0) + i));
         if (pressed)
         {
             key = u8"sc";
@@ -940,6 +959,19 @@ void key_check(int prm_299)
             keylog = "";
             shortcut = true;
         }
+    }
+
+    if (shortcut)
+    {
+        if (is_keypress_delayed(shortcut_held_frames, shortcut_delay, 20))
+        {
+            key = "";
+        }
+        ++shortcut_held_frames;
+    }
+    else
+    {
+        shortcut_held_frames = 0;
     }
 
     if (!shortcut && keyhalt != 0)
@@ -966,6 +998,7 @@ void wait_key_released()
         result = stick(stick_key::mouse_left | stick_key::mouse_right);
         if (result == 0)
         {
+            await(config::instance().wait1);
             key_check();
             if (key(0).empty())
             {

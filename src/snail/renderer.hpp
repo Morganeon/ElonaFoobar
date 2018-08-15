@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include "../lib/noncopyable.hpp"
 #include "blend_mode.hpp"
 #include "color.hpp"
 #include "detail/sdl.hpp"
@@ -18,7 +19,7 @@ namespace snail
 
 
 
-class renderer
+class renderer : public lib::noncopyable
 {
 public:
     enum flag_t
@@ -72,6 +73,12 @@ public:
     }
 
 
+    bool has_font()
+    {
+        return _font.ptr() != nullptr;
+    }
+
+
     const font_t& font() const noexcept
     {
         return _font;
@@ -112,13 +119,15 @@ public:
         const std::string& text,
         int x,
         int y,
-        const color& text_color = palette::black);
+        const color& text_color = palette::black,
+        double scale = 1.0);
     rect render_text_with_shadow(
         const std::string& text,
         int x,
         int y,
         const color& text_color = palette::white,
-        const color& shadow_color = palette::black);
+        const color& shadow_color = palette::black,
+        double scale = 1.0);
     rect render_multiline_text(
         const std::string& text,
         int x,
@@ -176,6 +185,24 @@ public:
         int dst_y,
         int dst_width,
         int dst_height);
+
+
+    void render_image_crop(
+        image_base& image,
+        int src_x,
+        int src_y,
+        int src_width,
+        int src_height,
+        int dst_x,
+        int dst_y);
+    void render_image_crop(
+        ::SDL_Texture* image,
+        int src_x,
+        int src_y,
+        int src_width,
+        int src_height,
+        int dst_x,
+        int dst_y);
 
 private:
     text_alignment_t _text_alignment = text_alignment_t::left;

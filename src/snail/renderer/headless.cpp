@@ -58,11 +58,7 @@ void renderer::fill_rect(int, int, int, int)
 }
 
 
-rect renderer::render_text(
-    const std::string&,
-    int,
-    int,
-    const color&)
+rect renderer::render_text(const std::string&, int, int, const color&, double)
 {
     return rect{0, 0, 0, 0};
 }
@@ -74,17 +70,14 @@ rect renderer::render_text_with_shadow(
     int,
     int,
     const color&,
-    const color&)
+    const color&,
+    double)
 {
     return rect{0, 0, 0, 0};
 }
 
 
-rect renderer::render_multiline_text(
-    const std::string&,
-    int,
-    int,
-    const color&)
+rect renderer::render_multiline_text(const std::string&, int, int, const color&)
 {
     return rect{0, 0, 0, 0};
 }
@@ -106,38 +99,17 @@ void renderer::render_image(image_base&, int, int)
 }
 
 
-void renderer::render_image(
-    image_base&,
-    int,
-    int,
-    int,
-    int)
+void renderer::render_image(image_base&, int, int, int, int)
 {
 }
 
 
-void renderer::render_image(
-    image_base&,
-    int,
-    int,
-    int,
-    int,
-    int,
-    int)
+void renderer::render_image(image_base&, int, int, int, int, int, int)
 {
 }
 
 
-void renderer::render_image(
-    image_base&,
-    int,
-    int,
-    int,
-    int,
-    int,
-    int,
-    int,
-    int)
+void renderer::render_image(image_base&, int, int, int, int, int, int, int, int)
 {
 }
 
@@ -147,24 +119,12 @@ void renderer::render_image(::SDL_Texture*, int, int)
 }
 
 
-void renderer::render_image(
-    ::SDL_Texture*,
-    int,
-    int,
-    int,
-    int)
+void renderer::render_image(::SDL_Texture*, int, int, int, int)
 {
 }
 
 
-void renderer::render_image(
-    ::SDL_Texture*,
-    int,
-    int,
-    int,
-    int,
-    int,
-    int)
+void renderer::render_image(::SDL_Texture*, int, int, int, int, int, int)
 {
 }
 
@@ -179,6 +139,16 @@ void renderer::render_image(
     int,
     int,
     int)
+{
+}
+
+
+void renderer::render_image_crop(image_base&, int, int, int, int, int, int)
+{
+}
+
+
+void render_image_crop(::SDL_Texture*, int, int, int, int, int, int)
 {
 }
 

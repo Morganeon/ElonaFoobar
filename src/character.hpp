@@ -6,6 +6,8 @@
 #include <vector>
 #include "cat.hpp"
 #include "god.hpp"
+#include "lion.hpp"
+#include "lua_env/exported_function.hpp"
 #include "position.hpp"
 #include "range.hpp"
 
@@ -104,7 +106,7 @@ struct character_data
     int ai_move;
     int can_talk;
     std::string class_;
-    int color;
+    color_index_t color;
     int creaturepack;
     int cspecialeq;
     int damage_reaction_info;
@@ -134,6 +136,7 @@ struct character_data
     int category;
     int rarity;
     int coefficient;
+    optional<std::string> corpse_eating_callback;
 
 
     ELONA_CHARACTER_DEFINE_FLAG_ACCESSORS
@@ -141,35 +144,35 @@ struct character_data
 
 
 
-class character_db;
+class character_db_ex;
 
 
-namespace cat
+namespace lion
 {
 
 template <>
-struct cat_db_traits<character_db>
+struct lion_db_traits<character_db_ex>
 {
-    using id_type = int;
     using data_type = character_data;
-    static constexpr const char* filename = u8"character.lua";
-    static constexpr const char* table_name = u8"character";
+    using legacy_id_type = int;
+    static constexpr const char* datatype_name = u8"chara";
 };
 
-} // namespace cat
+} // namespace lion
 
 
 
-class character_db : public cat::cat_db<character_db>
+class character_db_ex : public lion::lion_db<character_db_ex>
 {
 public:
-    character_db() = default;
+    character_db_ex() = default;
 
-    void define(lua_State* L);
+    character_data
+    convert(const std::string&, const sol::table&, lua::lua_env&);
 };
 
 
-extern character_db the_character_db;
+extern character_db_ex the_character_db;
 
 
 
@@ -193,6 +196,23 @@ struct buff_t
 
 struct character
 {
+    enum class state_t : int
+    {
+        empty = 0,
+        alive = 1,
+        villager_dead = 2,
+        adventurer_in_other_map = 3,
+        adventurer_dead = 4,
+        adventurer_empty = 5,
+        pet_dead = 6,
+        pet_waiting = 7,
+        pet_in_other_map =
+            8, // Ally failed to be placed/not participating in arena
+        pet_moving_to_map = 9, // Set on pets before leaving map, restored to
+                               // "alive" after initialize
+        servant_being_selected = 10,
+    };
+
     character();
 
     // NOTE: Don't add new fields unless you add them to serialization, which
@@ -204,7 +224,6 @@ struct character
     // on creation and load.
     int index = -1;
 
-    int state = 0;
     position_t position;
     position_t next_position;
     int time_to_revive = 0;
@@ -338,13 +357,34 @@ struct character
     void clear_flags();
 
 
+    // for identifying the type of a Lua reference
+    static std::string lua_type()
+    {
+        return "LuaCharacter";
+    }
+
+    bool is_dead()
+    {
+        return state_ == character::state_t::empty
+            || state_ == character::state_t::pet_dead
+            || state_ == character::state_t::villager_dead
+            || state_ == character::state_t::adventurer_dead;
+    }
+
+    character::state_t state() const
+    {
+        return state_;
+    }
+    void set_state(character::state_t);
+
+
     ELONA_CHARACTER_DEFINE_FLAG_ACCESSORS
 
 
     template <typename Archive>
     void serialize(Archive& ar)
     {
-        ar(state);
+        ar(state_);
         ar(position);
         ar(next_position);
         ar(time_to_revive);
@@ -474,6 +514,51 @@ struct character
         ar(_205);
         ar(_206);
     }
+
+
+    static void copy(const character& from, character& to)
+    {
+        const auto index_save = to.index;
+        to = from;
+        to.index = index_save;
+    }
+
+
+private:
+    character::state_t state_ = character::state_t::empty;
+
+
+    character(const character&) = default;
+    character(character&&) = default;
+    character& operator=(const character&) = default;
+    character& operator=(character&&) = default;
+};
+
+
+
+struct cdata_slice
+{
+    using iterator = std::vector<character>::iterator;
+
+    cdata_slice(const iterator& begin, const iterator& end)
+        : _begin(begin)
+        , _end(end)
+    {
+    }
+
+    iterator begin()
+    {
+        return _begin;
+    }
+
+    iterator end()
+    {
+        return _end;
+    }
+
+private:
+    const iterator _begin;
+    const iterator _end;
 };
 
 
@@ -483,16 +568,54 @@ struct cdata_t
     cdata_t();
 
 
-    character& operator()(int index)
-    {
-        return storage[index];
-    }
-
-
     character& operator[](int index)
     {
         return storage[index];
     }
+
+
+    character& player()
+    {
+        return (*this)[0];
+    }
+
+
+    character& tmp()
+    {
+        return (*this)[56];
+    }
+
+
+
+    cdata_slice all()
+    {
+        return {std::begin(storage), std::end(storage)};
+    }
+
+
+    cdata_slice pets()
+    {
+        return {std::begin(storage) + 1, std::begin(storage) + 16};
+    }
+
+
+    cdata_slice pc_and_pets()
+    {
+        return {std::begin(storage), std::begin(storage) + 16};
+    }
+
+
+    cdata_slice adventurers()
+    {
+        return {std::begin(storage) + 16, std::begin(storage) + 56};
+    }
+
+
+    cdata_slice others()
+    {
+        return {std::begin(storage) + 57, std::end(storage)};
+    }
+
 
 
 private:
@@ -503,26 +626,55 @@ private:
 extern cdata_t cdata;
 
 int chara_create(int = 0, int = 0, int = 0, int = 0);
-int chara_create_internal();
 void initialize_character();
 bool chara_place();
-int chara_relocate(int = 0, int = 0, int = 0);
+
+
+enum class chara_relocate_mode
+{
+    normal,
+    change,
+};
+
+
+/**
+ * Relocate `source` to `destination_slot`. `source` character will be
+ * destroyed.
+ * @param source The relocated character.
+ * @param destination_slot The slot of the character relocated from `source`. If
+ * you specify `none`, find an empty slot in cdata.others().
+ */
+void chara_relocate(
+    character& source,
+    optional<int> destination_slot,
+    chara_relocate_mode mode = chara_relocate_mode::normal);
+
 void chara_refresh(int);
-bool chara_copy(int cc);
+
+
+/**
+ * Copy `source` character to a new slot.
+ * @param source The character copied from.
+ * @return the character slot copied to if `source` was successfully copied;
+ * otherwise, -1.
+ */
+int chara_copy(const character& source);
+
 void chara_delete(int = 0);
+void chara_remove(character&);
 void chara_vanquish(int = 0);
 void chara_killed(character&);
-int chara_find(int = 0);
-int chara_find_ally(int = 0);
+int chara_find(int id);
+int chara_find_ally(int id);
 int chara_get_free_slot();
 int chara_get_free_slot_ally();
 bool chara_unequip(int);
 int chara_custom_talk(int = 0, int = 0);
 std::string chara_refstr(int = 0, int = 0);
 int chara_impression_level(int = 0);
-void chara_mod_impression(int = 0, int = 0);
-void chara_set_item_which_will_be_used();
-int chara_armor_class(int = 0);
+void chara_modify_impression(character& cc, int delta);
+void chara_set_item_which_will_be_used(character& cc);
+int chara_armor_class(const character& cc);
 
 void initialize_character_filters();
 void chara_set_generation_filter();
@@ -534,14 +686,6 @@ bool belong_to_same_team(const character& c1, const character& c2);
 
 
 } // namespace elona
-
-
-
-inline int cdata_body_part_index(int i)
-{
-    return i >= 100 ? i - 100 : i;
-}
-#define cdata_body_part(cc, i) cdata(cc).body_parts[cdata_body_part_index(i)]
 
 
 

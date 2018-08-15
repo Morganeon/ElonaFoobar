@@ -1,7 +1,7 @@
 #pragma once
 
-#include "thirdparty/microhcl/hcl.hpp"
 #include "thirdparty/microhil/hil.hpp"
+#include "thirdparty/sol2/sol.hpp"
 
 #include <string>
 #include <unordered_map>
@@ -9,7 +9,10 @@
 #include "cat.hpp"
 #include "character.hpp"
 #include "filesystem.hpp"
+#include "hcl.hpp"
 #include "item.hpp"
+#include "log.hpp"
+#include "lua_env/api_manager.hpp"
 #include "macro.hpp"
 #include "optional.hpp"
 
@@ -18,6 +21,9 @@ using namespace std::literals::string_literals;
 
 namespace elona
 {
+
+typedef std::string i18n_key;
+
 namespace i18n
 {
 
@@ -27,14 +33,16 @@ public:
     i18n_error(const std::string& path, std::string str)
     {
         std::ostringstream oss;
-        oss << path << ": Error: ";
+        oss << path << ": ";
         oss << str;
         what_ = oss.str();
     }
 
-    const char* what() const noexcept {
+    const char* what() const noexcept
+    {
         return what_.c_str();
     }
+
 private:
     std::string what_;
 };
@@ -125,7 +133,11 @@ inline bool ident_eq(std::string ident, int count)
 
 std::string format_builtins_argless(const hil::FunctionCall&);
 std::string format_builtins_bool(const hil::FunctionCall&, bool);
-std::string format_builtins_character(const hil::FunctionCall&, const character&);
+std::string format_builtins_string(const hil::FunctionCall&, std::string);
+std::string format_builtins_integer(const hil::FunctionCall&, int);
+std::string format_builtins_character(
+    const hil::FunctionCall&,
+    const character&);
 std::string format_builtins_item(const hil::FunctionCall&, const item&);
 
 std::string space_if_needed();
@@ -163,6 +175,32 @@ std::string format_literal_type(std::basic_string<Char> const& c)
     return c;
 }
 
+template <typename Head = const sol::object&>
+std::string format_literal_type(sol::object const& object)
+{
+    if (object.is<int>())
+    {
+        return std::to_string(object.as<int>());
+    }
+    if (object.is<double>())
+    {
+        return std::to_string(object.as<double>());
+    }
+    if (object.is<bool>())
+    {
+        return std::to_string(object.as<bool>());
+    }
+    if (object.is<std::string>())
+    {
+        return object.as<std::string>();
+    }
+    if (object.is<sol::table>())
+    {
+        return "<lua table>";
+    }
+    return "<lua object>";
+}
+
 template <typename Head>
 std::string format_literal_type(Head const& head)
 {
@@ -170,49 +208,124 @@ std::string format_literal_type(Head const& head)
 }
 
 template <typename Head = const character&>
-std::string format_function_type(hil::FunctionCall const& func, const character& chara)
+std::string format_function_type(
+    hil::FunctionCall const& func,
+    const character& chara)
 {
     return format_builtins_character(func, chara);
 }
 
 template <typename Head = const item&>
-std::string format_function_type(hil::FunctionCall const& func, const item& item)
+std::string format_function_type(
+    hil::FunctionCall const& func,
+    const item& item)
 {
     return format_builtins_item(func, item);
 }
 
+template <typename Head = const sol::object&>
+std::string format_function_type(
+    hil::FunctionCall const& func,
+    const sol::object& object)
+{
+    if (object.is<bool>())
+    {
+        return format_builtins_bool(func, object.as<bool>());
+    }
+    else if (object.is<std::string>())
+    {
+        return format_builtins_string(func, object.as<std::string>());
+    }
+    else if (object.is<int>())
+    {
+        return format_builtins_integer(func, object.as<int>());
+    }
+    else if (object.is<sol::table>())
+    {
+        sol::table table = object.as<sol::table>();
+        if (lua::lua->get_handle_manager().handle_is<character>(table))
+        {
+            auto& chara =
+                lua::lua->get_handle_manager().get_ref<character>(table);
+            return format_builtins_character(func, chara);
+        }
+        else if (lua::lua->get_handle_manager().handle_is<item>(table))
+        {
+            auto& item_ref =
+                lua::lua->get_handle_manager().get_ref<item>(table);
+            return format_builtins_item(func, item_ref);
+        }
+    }
+
+    return "<unknown lua object (" + func.name + ")>";
+}
+
 template <typename Head = bool>
-std::string format_function_type(hil::FunctionCall const& func, bool const& value)
+std::string format_function_type(
+    hil::FunctionCall const& func,
+    bool const& value)
 {
     return format_builtins_bool(func, value);
 }
 
+template <typename Head = int>
+std::string format_function_type(
+    hil::FunctionCall const& func,
+    int const& value)
+{
+    return format_builtins_integer(func, value);
+}
+
+template <typename Head = std::string>
+std::string format_function_type(
+    hil::FunctionCall const& func,
+    std::string const& value)
+{
+    return format_builtins_string(func, value);
+}
+
 template <typename Head>
-std::string format_function_type(hil::FunctionCall const& func, Head const& head)
+std::string format_function_type(
+    hil::FunctionCall const& func,
+    Head const& head)
 {
     UNUSED(head);
 
-    return "<unknown function (" + func.name + ")>";
+    return "<unknown function (" + func.name + ", unknown type)>";
 }
 
 
 template <typename... Tail>
-void fmt_internal(const hil::Context& ctxt,
-                  int count,
-                  std::vector<optional<std::string>>& formatted)
+void fmt_internal(
+    const hil::Context& ctxt,
+    int count,
+    std::vector<optional<std::string>>& formatted)
 {
-    UNUSED(ctxt);
     UNUSED(count);
-    UNUSED(formatted);
+
+    for (size_t i = 0; i < formatted.size(); i++)
+    {
+        hil::Value v = ctxt.hilParts.at(i);
+        if (v.is<hil::FunctionCall>())
+        {
+            hil::FunctionCall func = v.as<hil::FunctionCall>();
+
+            if (func.args.size() == 0)
+            {
+                formatted.at(i) = format_builtins_argless(func);
+            }
+        }
+    }
 }
 
 
 template <typename Head, typename... Tail>
-void fmt_internal(const hil::Context& ctxt,
-                   int count,
-                   std::vector<optional<std::string>>& formatted,
-                   Head const& head,
-                   Tail&&... tail)
+void fmt_internal(
+    const hil::Context& ctxt,
+    int count,
+    std::vector<optional<std::string>>& formatted,
+    Head const& head,
+    Tail&&... tail)
 {
     for (size_t i = 0; i < formatted.size(); i++)
     {
@@ -243,8 +356,13 @@ void fmt_internal(const hil::Context& ctxt,
             }
             else if (func.args.at(0).is<bool>())
             {
-                formatted.at(i) = format_builtins_bool(func,
-                                                       func.args.at(0).as<bool>());
+                formatted.at(i) =
+                    format_builtins_bool(func, func.args.at(0).as<bool>());
+            }
+            else if (func.args.at(0).is<int>())
+            {
+                formatted.at(i) =
+                    format_builtins_integer(func, func.args.at(0).as<int>());
             }
         }
     }
@@ -254,8 +372,9 @@ void fmt_internal(const hil::Context& ctxt,
 
 } // namespace detail
 
-inline std::string fmt_interpolate_converted(const hil::Context& ctxt,
-                                             const std::vector<optional<std::string>>& formatted)
+inline std::string fmt_interpolate_converted(
+    const hil::Context& ctxt,
+    const std::vector<optional<std::string>>& formatted)
 {
     std::string s;
 
@@ -268,7 +387,7 @@ inline std::string fmt_interpolate_converted(const hil::Context& ctxt,
         }
         else
         {
-            s += "<error>";
+            s += "<missing>";
         }
     }
 
@@ -278,7 +397,8 @@ inline std::string fmt_interpolate_converted(const hil::Context& ctxt,
 }
 
 template <typename Head, typename... Tail>
-std::string fmt_with_context(const hil::Context& ctxt, Head const& head, Tail&&... tail)
+std::string
+fmt_with_context(const hil::Context& ctxt, Head const& head, Tail&&... tail)
 {
     if (ctxt.textParts.size() == 1)
         return ctxt.textParts[0];
@@ -301,15 +421,15 @@ std::string fmt_with_context(const hil::Context& ctxt, Tail&&... tail)
     return fmt_interpolate_converted(ctxt, formatted);
 }
 
-
 // For testing use
-template <typename Head, typename... Tail>
-std::string fmt_hil(const std::string& hil, Head const& head, Tail&&... tail)
+template <typename... Tail>
+std::string fmt_hil(const std::string& hil, Tail&&... tail)
 {
     std::stringstream ss(hil);
 
     hil::ParseResult p = hil::parse(ss);
-    if (p.errorReason.size() != 0) {
+    if (p.errorReason.size() != 0)
+    {
         std::cerr << hil << std::endl;
         std::cerr << p.errorReason << std::endl;
     }
@@ -318,45 +438,42 @@ std::string fmt_hil(const std::string& hil, Head const& head, Tail&&... tail)
         return p.errorReason;
     }
 
-    return fmt_with_context(p.context, head, std::forward<Tail>(tail)...);
+    return fmt_with_context(p.context, std::forward<Tail>(tail)...);
 }
+
 
 
 class store
 {
 public:
-    store() {};
+    store(){};
     ~store() = default;
 
-    void init(fs::path);
-    void load(std::istream&, const std::string&);
-
-    template <typename Head, typename... Tail>
-    std::string get(const std::string& key, Head const& head, Tail&&... tail)
+    struct location
     {
-        const auto& found = storage.find(key);
-        if (found == storage.end())
+        location(fs::path locale_dir, std::string mod_name)
+            : locale_dir(locale_dir)
+            , mod_name(mod_name)
         {
-            return u8"<Unknown ID: " + key + ">";
         }
 
-        return fmt_with_context(found->second, head, std::forward<Tail>(tail)...);
-    }
+        fs::path locale_dir;
+        std::string mod_name;
+    };
 
-    template <typename... Tail>
-    std::string get(const std::string& key, Tail&&... tail)
+    void init(const std::vector<store::location>&);
+
+    // For testing use.
+    void load(std::istream&, const std::string&, const std::string&);
+
+    void clear()
     {
-        const auto& found = storage.find(key);
-        if (found == storage.end())
-        {
-            return u8"<Unknown ID: " + key + ">";
-        }
-
-        return fmt_with_context(found->second, std::forward<Tail>(tail)...);
+        storage.clear();
     }
 
     template <typename Head, typename... Tail>
-    optional<std::string> get_optional(const std::string& key, Head const& head, Tail&&... tail)
+    optional<std::string>
+    get_optional(const std::string& key, Head const& head, Tail&&... tail)
     {
         const auto& found = storage.find(key);
         if (found == storage.end())
@@ -364,7 +481,8 @@ public:
             return none;
         }
 
-        return fmt_with_context(found->second, head, std::forward<Tail>(tail)...);
+        return fmt_with_context(
+            found->second, head, std::forward<Tail>(tail)...);
     }
 
     template <typename... Tail>
@@ -379,69 +497,147 @@ public:
         return fmt_with_context(found->second, std::forward<Tail>(tail)...);
     }
 
+    template <typename Head, typename... Tail>
+    std::string get(const std::string& key, Head const& head, Tail&&... tail)
+    {
+        if (auto text = get_optional(key, head, std::forward<Tail>(tail)...))
+        {
+            return *text;
+        }
+        else
+        {
+            if (unknown_keys.find(key) == unknown_keys.end())
+            {
+                ELONA_LOG("Unknown I18N ID: " << key);
+                unknown_keys.insert(key);
+            }
+            return u8"<Unknown ID: " + key + ">";
+        }
+    }
+
+    template <typename... Tail>
+    std::string get(const std::string& key, Tail&&... tail)
+    {
+        if (auto text = get_optional(key, std::forward<Tail>(tail)...))
+        {
+            return *text;
+        }
+        else
+        {
+            if (unknown_keys.find(key) == unknown_keys.end())
+            {
+                ELONA_LOG("Unknown I18N ID: " << key);
+                unknown_keys.insert(key);
+            }
+            return u8"<Unknown ID: " + key + ">";
+        }
+    }
+
 
     // Convenience methods for cases like "core.element._<enum index>.name"
 
     template <typename Head, typename... Tail>
-    std::string get_enum(const std::string& key,
-                         int index,
-                         Head const& head,
-                         Tail&&... tail)
+    std::string get_enum(
+        const std::string& key,
+        int index,
+        Head const& head,
+        Tail&&... tail)
     {
-        return get(key + "._" + std::to_string(index), head, std::forward<Tail>(tail)...);
+        return get(
+            key + "._" + std::to_string(index),
+            head,
+            std::forward<Tail>(tail)...);
     }
 
     template <typename... Tail>
-    std::string get_enum(const std::string& key,
-                         int index,
-                         Tail&&... tail)
+    std::string get_enum(const std::string& key, int index, Tail&&... tail)
     {
-        return get(key + "._" + std::to_string(index), std::forward<Tail>(tail)...);
+        return get(
+            key + "._" + std::to_string(index), std::forward<Tail>(tail)...);
     }
 
     template <typename Head, typename... Tail>
-    std::string get_enum_property(const std::string& key_head,
-                         int index,
-                         const std::string& key_tail,
-                         Head const& head,
-                         Tail&&... tail)
+    optional<std::string> get_enum_optional(
+        const std::string& key,
+        int index,
+        Head const& head,
+        Tail&&... tail)
     {
-        return get(key_head + "._" + std::to_string(index) + "." + key_tail, head, std::forward<Tail>(tail)...);
+        return get_optional(
+            key + "._" + std::to_string(index),
+            head,
+            std::forward<Tail>(tail)...);
     }
 
     template <typename... Tail>
-    std::string get_enum_property(const std::string& key_head,
-                         int index,
-                         const std::string& key_tail,
-                         Tail&&... tail)
+    optional<std::string>
+    get_enum_optional(const std::string& key, int index, Tail&&... tail)
     {
-        return get(key_head + "._" + std::to_string(index) + "." + key_tail, std::forward<Tail>(tail)...);
+        return get_optional(
+            key + "._" + std::to_string(index), std::forward<Tail>(tail)...);
     }
 
     template <typename Head, typename... Tail>
-    optional<std::string> get_enum_property_opt(const std::string& key_head,
-                                            int index,
-                                            const std::string& key_tail,
-                                            Head const& head,
-                                            Tail&&... tail)
+    std::string get_enum_property(
+        const std::string& key_head,
+        int index,
+        const std::string& key_tail,
+        Head const& head,
+        Tail&&... tail)
     {
-        return get_optional(key_head + "._" + std::to_string(index) + "." + key_tail, head, std::forward<Tail>(tail)...);
+        return get(
+            key_head + "._" + std::to_string(index) + "." + key_tail,
+            head,
+            std::forward<Tail>(tail)...);
     }
 
     template <typename... Tail>
-    optional<std::string> get_enum_property_opt(const std::string& key_head,
-                                            int index,
-                                            const std::string& key_tail,
-                                            Tail&&... tail)
+    std::string get_enum_property(
+        const std::string& key_head,
+        const std::string& key_tail,
+        int index,
+        Tail&&... tail)
     {
-        return get_optional(key_head + "._" + std::to_string(index) + "." + key_tail, std::forward<Tail>(tail)...);
+        return get(
+            key_head + "._" + std::to_string(index) + "." + key_tail,
+            std::forward<Tail>(tail)...);
+    }
+
+    template <typename Head, typename... Tail>
+    optional<std::string> get_enum_property_opt(
+        const std::string& key_head,
+        const std::string& key_tail,
+        int index,
+        Head const& head,
+        Tail&&... tail)
+    {
+        return get_optional(
+            key_head + "._" + std::to_string(index) + "." + key_tail,
+            head,
+            std::forward<Tail>(tail)...);
+    }
+
+    template <typename... Tail>
+    optional<std::string> get_enum_property_opt(
+        const std::string& key_head,
+        const std::string& key_tail,
+        int index,
+        Tail&&... tail)
+    {
+        return get_optional(
+            key_head + "._" + std::to_string(index) + "." + key_tail,
+            std::forward<Tail>(tail)...);
     }
 
 private:
+    void load(const fs::path&, const std::string&);
+
     void visit(const hcl::Value&, const std::string&, const std::string&);
-    void visit_object(const hcl::Object&, const std::string&, const std::string&);
+    void
+    visit_object(const hcl::Object&, const std::string&, const std::string&);
 
     std::unordered_map<std::string, hil::Context> storage;
+    std::set<std::string> unknown_keys;
 };
 
 extern i18n::store s;

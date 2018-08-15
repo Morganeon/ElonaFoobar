@@ -3,6 +3,7 @@
 #include <array>
 #include <string>
 #include "../lib/noncopyable.hpp"
+#include "../optional.hpp"
 #include "detail/sdl.hpp"
 
 
@@ -13,11 +14,16 @@ namespace snail
 
 
 
-struct button
+struct button : public lib::noncopyable
 {
     bool is_pressed() const noexcept
     {
         return _is_pressed;
+    }
+
+    bool was_released_immediately() const noexcept
+    {
+        return _was_released_immediately;
     }
 
     int repeat() const noexcept
@@ -39,6 +45,12 @@ struct button
     }
 
 
+    void _release_immediately()
+    {
+        _was_released_immediately = true;
+    }
+
+
     void _increase_repeat()
     {
         ++_repeat;
@@ -47,6 +59,7 @@ struct button
 
 private:
     bool _is_pressed = false;
+    bool _was_released_immediately = false;
     int _repeat = -1;
 };
 
@@ -228,6 +241,8 @@ enum class key
     keypad_enter,
     keypad_equal,
 
+    android_back,
+
     _size,
 };
 
@@ -252,26 +267,84 @@ inline bool is_modifier(key k)
 }
 
 
+
+class mouse_t
+{
+public:
+    enum class button_t
+    {
+        left,
+        middle,
+        right,
+        x1,
+        x2,
+
+        _size,
+    };
+
+
+    int x() const
+    {
+        return _x;
+    }
+
+
+    int y() const
+    {
+        return _y;
+    }
+
+
+    const button& operator[](button_t button) const
+    {
+        return buttons[static_cast<size_t>(button)];
+    }
+
+
+    void _handle_event(const ::SDL_MouseButtonEvent& event);
+
+    void update();
+
+
+private:
+    int _x;
+    int _y;
+    std::array<button, static_cast<size_t>(button_t::_size)> buttons;
+};
+
+
+
 class input final : public lib::noncopyable
 {
 public:
     bool is_pressed(key k, int key_wait = 1) const;
+    bool is_pressed(mouse_t::button_t b) const;
     bool was_pressed_just_now(key k) const;
+    bool was_pressed_just_now(mouse_t::button_t b) const;
 
     bool is_ime_active() const;
 
+    void show_soft_keyboard();
+    void hide_soft_keyboard();
+    void toggle_soft_keyboard();
 
-   /***
-    * Disables NumLock to prevent strange Windows-specific behavior when
-    * holding Shift and pressing a numpad key. What happens with NumLock
-    * enabled is the numpad key reverts to its non-NumLock functionality,
-    * but Shift becomes depressed for some reason. This prevents the
-    * player from running when holding Shift and pressing a numpad
-    * movement key. This does not happen on Linux, so it's probably a
-    * Windows-specific quirk.
-    *
-    * This method has no effect on platforms besides Windows.
-    */
+    const mouse_t& mouse() const
+    {
+        return _mouse;
+    }
+
+
+    /***
+     * Disables NumLock to prevent strange Windows-specific behavior when
+     * holding Shift and pressing a numpad key. What happens with NumLock
+     * enabled is the numpad key reverts to its non-NumLock functionality,
+     * but Shift becomes depressed for some reason. This prevents the
+     * player from running when holding Shift and pressing a numpad
+     * movement key. This does not happen on Linux, so it's probably a
+     * Windows-specific quirk.
+     *
+     * This method has no effect on platforms besides Windows.
+     */
     void disable_numlock();
 
     /***
@@ -281,11 +354,22 @@ public:
      */
     void restore_numlock();
 
-    std::string get_text()
+    std::string pop_text()
     {
         std::string ret = _text;
         _text.clear();
         return ret;
+    }
+
+
+    void set_quick_action_repeat_start_wait(int wait) noexcept
+    {
+        _quick_action_repeat_start_wait = wait;
+    }
+
+    void set_quick_action_repeat_wait(int wait) noexcept
+    {
+        _quick_action_repeat_wait = wait;
     }
 
 
@@ -299,6 +383,8 @@ public:
     void _handle_event(const ::SDL_KeyboardEvent& event);
     void _handle_event(const ::SDL_TextInputEvent& event);
     void _handle_event(const ::SDL_TextEditingEvent& event);
+    void _handle_event(const ::SDL_TouchFingerEvent& event);
+    void _handle_event(const ::SDL_MouseButtonEvent& event);
 
 
 private:
@@ -306,6 +392,18 @@ private:
     std::string _text;
     bool _is_ime_active{};
     bool _needs_restore_numlock{};
+
+    // Members for handling text input of on-screen quick action
+    // buttons on Android. They need to be here since quick actions
+    // can modify inputted text.
+    optional<snail::key> _last_quick_action_key = none;
+    optional<std::string> _last_quick_action_text = none;
+    int _quick_action_key_repeat = -1;
+    int _quick_action_text_repeat = -1;
+    int _quick_action_repeat_start_wait = 10;
+    int _quick_action_repeat_wait = 2;
+
+    mouse_t _mouse;
 
     input() = default;
 };

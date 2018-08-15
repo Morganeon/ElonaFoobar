@@ -1,5 +1,5 @@
-#include "../application.hpp"
 #include "../detail/sdl.hpp"
+#include "../application.hpp"
 
 #include <vector>
 
@@ -34,6 +34,12 @@ namespace audio
 {
 
 
+void set_position(int channel, short angle, unsigned char distance)
+{
+    ::Mix_SetPosition(channel, angle, distance);
+}
+
+
 int DSINIT()
 {
     Mix_AllocateChannels(max_channels);
@@ -55,8 +61,7 @@ void DSLOADFNAME(const std::string& filepath, int channel)
     if (auto chunk = chunks[channel])
         Mix_FreeChunk(chunk);
 
-    auto chunk = snail::detail::enforce_mixer(
-        Mix_LoadWAV(filepath.c_str()));
+    auto chunk = snail::detail::enforce_mixer(Mix_LoadWAV(filepath.c_str()));
     chunks[channel] = chunk;
 }
 
@@ -106,17 +111,26 @@ int DMINIT()
 
 void DMLOADFNAME(const std::string& filepath, int)
 {
+    // TODO: find why MIDI is marked "unsupported"
+    if (application::is_android)
+    {
+        return;
+    }
     if (played_music)
         ::Mix_FreeMusic(played_music);
 
-    played_music = snail::detail::enforce_mixer(
-        Mix_LoadMUS(filepath.c_str()));
+    played_music = snail::detail::enforce_mixer(Mix_LoadMUS(filepath.c_str()));
 }
 
 
 
 void DMPLAY(int loop, int)
 {
+    // TODO: find why MIDI is marked "unsupported"
+    if (application::is_android)
+    {
+        return;
+    }
     detail::enforce_mixer(Mix_PlayMusic(played_music, loop ? -1 : 1));
 }
 

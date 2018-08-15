@@ -1,10 +1,12 @@
 #include "../thirdparty/catch2/catch.hpp"
 
-#include "tests.hpp"
 #include "../enums.hpp"
+#include "../i18n.hpp"
+#include "../init.hpp"
 #include "../item.hpp"
 #include "../itemgen.hpp"
 #include "../variables.hpp"
+#include "tests.hpp"
 
 namespace elona
 {
@@ -15,6 +17,7 @@ void set_english()
 {
     elona::jp = 0;
     elona::en = 1;
+    initialize_i18n();
     set_item_info();
 }
 
@@ -22,6 +25,7 @@ void set_japanese()
 {
     elona::jp = 1;
     elona::en = 0;
+    initialize_i18n();
     set_item_info();
 }
 

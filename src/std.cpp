@@ -7,6 +7,7 @@
 #include <sstream>
 
 
+#include "snail/android.hpp"
 #include "snail/application.hpp"
 #include "snail/hsp.hpp"
 #include "snail/window.hpp"
@@ -14,6 +15,7 @@
 #include "config.hpp"
 #include "defines.hpp"
 #include "elona.hpp"
+#include "i18n.hpp"
 #include "log.hpp"
 #include "macro.hpp"
 #include "util.hpp"
@@ -103,45 +105,50 @@ std::string operator+(elona_vector1<std::string>& lhs, const std::string& rhs)
 void await(int msec)
 {
     snail::hsp::await(msec);
+
+    // On Android, potentially quicksave if SDL detects that the app's
+    // focus was lost and the player is being queried for input in
+    // pc_turn().
+    if (defines::is_android
+        && snail::application::instance().was_focus_lost_just_now())
+    {
+        if (player_queried_for_input
+            && config::instance().get<bool>("core.config.android.quicksave")
+            && !std::uncaught_exception())
+        {
+            ELONA_LOG("Focus lost, quicksaving game.");
+            snail::android::toast(
+                i18n::s.get("core.locale.ui.save_on_suspend"),
+                snail::android::toast_length::long_length);
+            save_game();
+        }
+    }
 }
 
 
 
-// CANNOT BE IMPLEMENTED
-void axobj(int, const std::string&, int, int)
+void boxf(int x, int y, int width, int height, const snail::color& color)
 {
+    snail::hsp::boxf(x, y, width, height, color);
 }
 
 
 
-void bcopy(const fs::path& from, const fs::path& to)
+void boxf()
 {
-    ELONA_LOG("Copy file: from " << from << " to " << to);
-    fs::copy_file(from, to, fs::copy_option::overwrite_if_exists);
+    snail::hsp::boxf({0, 0, 0, 0});
 }
 
 
 
-// fullscreen
-void bgscr(int window_id, int width, int height, int, int)
+void boxl(int x, int y, int width, int height, const snail::color& color)
 {
-    UNUSED(window_id);
-    UNUSED(width);
-    UNUSED(height);
-}
-
-
-
-void boxf(int x1, int y1, int x2, int y2, const snail::color& color)
-{
-    snail::hsp::boxf(x1, y1, x2, y2, color);
-}
-
-
-
-void boxf(const snail::color& color)
-{
-    snail::hsp::boxf(color);
+    const auto x2 = x + width;
+    const auto y2 = y + height;
+    line(x, y, x2, y, color);
+    line(x2, y, x2, y2, color);
+    line(x2, y2, x, y2, color);
+    line(x, y2, x, y, color);
 }
 
 
@@ -197,7 +204,7 @@ void bload(const fs::path& filename, elona_vector1<int>& data, int size, int)
             + filesystem::make_preferred_path_in_utf8(filename));
     }
     auto buf = read_binary(in, size).first;
-    for (size_t i = 0; i < length(data); ++i)
+    for (size_t i = 0; i < data.size(); ++i)
     {
         data(i) = reinterpret_cast<int*>(buf.get())[i];
         size -= sizeof(int);
@@ -248,37 +255,12 @@ void buffer(int window_id, int width, int height)
 
 
 
-void chgdisp(int, int width, int height)
-{
-    UNUSED(width);
-    UNUSED(height);
-}
-
-
-
-void clrobj(int)
-{
-}
-
-
-
 void color(int r, int g, int b)
 {
     snail::hsp::color(r, g, b);
 }
 
 
-
-void delcom(int)
-{
-}
-
-
-
-void elona_delete(const fs::path& filename)
-{
-    fs::remove_all(filename);
-}
 
 #if defined(ELONA_OS_WINDOWS)
 std::wstring get_utf16(const std::string& str)
@@ -340,8 +322,8 @@ int dialog(const std::string& message, int option)
 #elif defined(ELONA_OS_MACOS)
     return dialog_macos(message, option);
 #else
-    UNUSED(message);
     UNUSED(option);
+    std::cout << message << std::endl;
     return 0;
 #endif
 }
@@ -354,20 +336,51 @@ void exec(const std::string&, int)
 
 
 
-
-
 void font(int size, snail::font_t::style_t style)
 {
-    const auto& filename = filesystem::path(u8"font")
-        / lang(config::instance().font1, config::instance().font2);
-    snail::hsp::font(size, style, filesystem::make_preferred_path_in_utf8(filename));
+    const auto& filepath = filesystem::path(u8"font")
+        / filesystem::u8path(lang(
+              config::instance().font1, config::instance().font2));
+    snail::hsp::font(size, style, filepath);
 }
 
 
 
-void gcopy(int window_id, int src_x, int src_y, int src_width, int src_height)
+void gcopy(
+    int window_id,
+    int src_x,
+    int src_y,
+    int src_width,
+    int src_height,
+    int dst_width,
+    int dst_height)
 {
-    snail::hsp::gcopy(window_id, src_x, src_y, src_width, src_height);
+    snail::hsp::gcopy(
+        window_id, src_x, src_y, src_width, src_height, dst_width, dst_height);
+}
+
+
+
+void gcopy_c(int window_id, int src_x, int src_y, int src_width, int src_height)
+{
+    gcopy_c(
+        window_id, src_x, src_y, src_width, src_height, src_width, src_height);
+}
+
+
+
+void gcopy_c(
+    int window_id,
+    int src_x,
+    int src_y,
+    int src_width,
+    int src_height,
+    int dst_width,
+    int dst_height)
+{
+    pos(ginfo(22) - dst_width / 2, ginfo(23) - dst_height / 2);
+    snail::hsp::gcopy(
+        window_id, src_x, src_y, src_width, src_height, dst_width, dst_height);
 }
 
 
@@ -418,9 +431,9 @@ int ginfo(int type)
 
 
 
-void gmode(int mode, int width, int height, int alpha)
+void gmode(int mode, int alpha)
 {
-    snail::hsp::gmode(mode, width, height, alpha);
+    snail::hsp::gmode(mode, alpha);
 }
 
 
@@ -433,15 +446,25 @@ constexpr T rad2deg(T rad)
 
 
 
-void grotate2(
+void grotate(
     int window_id,
     int src_x,
     int src_y,
-    double angle,
+    int src_width,
+    int src_height,
     int dst_width,
-    int dst_height)
+    int dst_height,
+    double angle)
 {
-    snail::hsp::grotate2(window_id, src_x, src_y, angle, dst_width, dst_height);
+    snail::hsp::grotate(
+        window_id,
+        src_x,
+        src_y,
+        src_width,
+        src_height,
+        dst_width,
+        dst_height,
+        angle);
 }
 
 
@@ -450,11 +473,11 @@ void grotate(
     int window_id,
     int src_x,
     int src_y,
-    double angle,
-    int dst_width,
-    int dst_height)
+    int src_width,
+    int src_height,
+    double angle)
 {
-    snail::hsp::grotate(window_id, src_x, src_y, angle, dst_width, dst_height);
+    snail::hsp::grotate(window_id, src_x, src_y, src_width, src_height, angle);
 }
 
 
@@ -462,21 +485,6 @@ void grotate(
 void gsel(int window_id)
 {
     snail::hsp::gsel(window_id);
-}
-
-
-
-void gzoom(
-    int window_id,
-    int src_x,
-    int src_y,
-    int src_width,
-    int src_height,
-    int dst_width,
-    int dst_height,
-    bool blend)
-{
-    snail::hsp::gzoom(window_id, src_x, src_y, src_width, src_height, dst_width, dst_height, blend);
 }
 
 
@@ -511,60 +519,11 @@ int stoi(const std::string& s)
 
 
 
-size_t length(const std::string& str)
+void line(int x1, int y1, int x2, int y2, const snail::color& color)
 {
-    return str.size();
+    snail::hsp::line(x1, y1, x2, y2, color);
 }
 
-
-
-void line(int x1, int y1, int x2, int y2)
-{
-    snail::hsp::line(x1, y1, x2, y2);
-}
-
-
-
-void line(int x, int y)
-{
-    snail::hsp::line(x, y);
-}
-
-
-
-void memcpy(
-    elona_vector2<int>& src,
-    int src_i,
-    int src_j,
-    elona_vector2<int>& dst,
-    int dst_i,
-    int dst_j,
-    size_t size)
-{
-    const auto len = length(src);
-    const auto len2 = length2(src);
-    auto count = size;
-    for (size_t i = 0; i < len2; ++i)
-    {
-        for (size_t j = 0; j < len; ++j)
-        {
-            src(src_j + j, src_i + i) = dst(dst_j + j, dst_i + i);
-            count -= sizeof(int);
-            if (count == 0)
-                return;
-        }
-    }
-}
-
-
-
-// void memexpand(void* memory, size_t size)
-// {
-// }
-
-// void memfile(void* buf)
-// {
-// }
 
 
 void mes(const std::string& text)
@@ -583,14 +542,7 @@ void mes(int n)
 
 void mesbox(std::string& buffer, bool text)
 {
-    snail::hsp::mesbox(buffer, text);
-}
-
-
-
-void mkdir(const fs::path& path)
-{
-    fs::create_directory(path);
+    snail::hsp::mesbox(buffer, config::instance().keywait, text);
 }
 
 
@@ -754,19 +706,7 @@ void noteunsel()
 
 
 
-void objmode(int, int)
-{
-}
-
-
-
 void objprm(int, const std::string&)
-{
-}
-
-
-
-void objsel(int)
 {
 }
 
@@ -810,22 +750,9 @@ void redraw()
 
 
 
-void screen(int window_id, int width, int height, int mode, int x, int y)
-{
-    UNUSED(window_id);
-    UNUSED(width);
-    UNUSED(height);
-    UNUSED(mode);
-    UNUSED(x);
-    UNUSED(y);
-}
-
-
-
 int stick(int allow_repeat_keys)
 {
-    auto check_key_pressed = [allow_repeat_keys](
-                                 int n, snail::key key) {
+    auto check_key_pressed = [allow_repeat_keys](int n, auto&& key) {
         if ((1 << n) & allow_repeat_keys)
         {
             return (1 << n) * snail::input::instance().is_pressed(key);
@@ -848,8 +775,8 @@ int stick(int allow_repeat_keys)
     ret += check_key_pressed(5, snail::key::keypad_enter);
     ret += check_key_pressed(6, snail::key::ctrl);
     ret += check_key_pressed(7, snail::key::escape);
-    // ret += check_key_pressed(8,  /* Mouse left */,  false);
-    // ret += check_key_pressed(9,  /* Mouse right */);
+    ret += check_key_pressed(8, snail::mouse_t::button_t::left);
+    ret += check_key_pressed(9, snail::mouse_t::button_t::right);
     ret += check_key_pressed(10, snail::key::tab);
 
     if (allow_repeat_keys == 15)
@@ -865,6 +792,9 @@ int stick(int allow_repeat_keys)
             ret |= 4 * snail::input::instance().is_pressed(snail::key::right);
         }
     }
+
+    mousex = snail::input::instance().mouse().x();
+    mousey = snail::input::instance().mouse().y();
 
     return ret;
 }
@@ -910,19 +840,12 @@ std::string strmid(const std::string& source, int pos, int length)
 
 
 
-void title(const std::string& title_str,
-           const std::string& display_mode,
-           snail::window::fullscreen_mode_t fullscreen_mode)
+void title(
+    const std::string& title_str,
+    const std::string& display_mode,
+    snail::window::fullscreen_mode_t fullscreen_mode)
 {
     snail::hsp::title(title_str, display_mode, fullscreen_mode);
-}
-
-
-
-void width(int width, int height, int, int)
-{
-    UNUSED(width);
-    UNUSED(height);
 }
 
 
@@ -957,55 +880,6 @@ void wpoke(int& x, size_t index, int y)
 
 
 
-// imported functions
-
-
-
-void func_1(const std::string&, int)
-{
-}
-
-
-
-// FIXME:
-// The texture which created with SDL_TEXTUREACCESS_TARGET cannot be
-// locked/unlocked.
-namespace gf_detail
-{
-// ::SDL_Rect rect;
-// void* pixels;
-// int pitch;
-
-
-template <typename F>
-void map(F f)
-{
-    // const auto texture =
-    // snail::application::instance().get_renderer().render_target(); const auto
-    // format = snail::detail::enforce_sdl(
-    //         ::SDL_AllocFormat(::SDL_MasksToPixelFormatEnum(32, 0, 0, 0, 0)));
-    //
-    // auto pixels = reinterpret_cast<uint32_t*>(gf_detail::pixels);
-    // int pixel_count = gf_detail::pitch / 4 * gf_detail::rect.h;
-    //
-    // for (int i = 0; i < pixel_count; ++i)
-    // {
-    //     uint8_t r_;
-    //     uint8_t g_;
-    //     uint8_t b_;
-    //     ::SDL_GetRGB(pixels[i], format, &r_, &g_, &b_);
-    //     pixels[i] = ::SDL_MapRGB(format, f(r_, r), f(g_, r), f(b_, r));
-    // }
-    //
-    // ::SDL_UnlockTexture(texture);
-}
-
-
-
-} // namespace gf_detail
-
-
-
 void set_color_mod(int r, int g, int b, int window_id)
 {
     snail::hsp::set_color_mod(r, g, b, window_id);
@@ -1013,80 +887,8 @@ void set_color_mod(int r, int g, int b, int window_id)
 
 
 
-void gfini(int width, int height)
-{
-    UNUSED(width);
-    UNUSED(height);
-    // gf_detail::rect = {detail::current_tex_buffer().x,
-    // detail::current_tex_buffer().y, width, height}; const auto texture =
-    // snail::application::instance().get_renderer().render_target();
-    // ::SDL_LockTexture(texture, &gf_detail::rect, &gf_detail::pixels,
-    // &gf_detail::pitch); LOG("gfini", gf_detail::pitch, gf_detail::rect.h);
-}
-
-
-
-void gfdec(int r, int g, int b)
-{
-    UNUSED(r);
-    UNUSED(g);
-    UNUSED(b);
-    // gf_detail::map([](uint8_t v_, int v)
-    //     {
-    //         v = std::min(v, static_cast<int>(v_));
-    //         v_ -= v;
-    //         return v_;
-    //     });
-}
-
-
-
-void gfdec2(int r, int g, int b)
-{
-    UNUSED(r);
-    UNUSED(g);
-    UNUSED(b);
-    // gf_detail::map([](uint8_t v_, int v)
-    //     {
-    //         v = std::min(v, static_cast<int>(v_) - 1);
-    //         v_ -= v;
-    //         return v_;
-    //     });
-}
-
-
-
-void gfinc(int r, int g, int b)
-{
-    UNUSED(r);
-    UNUSED(g);
-    UNUSED(b);
-    // gf_detail::map([](uint8_t v_, int v)
-    //     {
-    //         v = std::min(v, 255 - static_cast<int>(v_));
-    //         v_ -= v;
-    //         return v_;
-    //     });
-}
-
-
-
 void ematan(int, int, int)
 {
-}
-
-
-
-int aplsel(const std::string&)
-{
-    return 0;
-}
-
-
-
-int aplobj(const std::string&, int)
-{
-    return 0;
 }
 
 
@@ -1118,21 +920,6 @@ void func_2(int, int, int, int, int, int)
 
 
 
-void memcpy_(
-    std::string& dst,
-    std::string& src,
-    int size,
-    int dst_offset,
-    int src_offset)
-{
-    for (int i = 0; i < size; ++i)
-    {
-        dst[i + dst_offset] = src[i + src_offset];
-    }
-}
-
-
-
 void DIINIT()
 {
 }
@@ -1152,174 +939,9 @@ void DIGETJOYSTATE(int, int)
 
 
 
-void HMMBITON(int& x, int n)
-{
-    x |= 1 << n;
-}
-
-
-
-void HMMBITOFF(int& x, int n)
-{
-    x &= ~(1 << n);
-}
-
-
-
 int HMMBITCHECK(int x, int n)
 {
     return x & (1 << n) ? 1 : 0;
-}
-
-
-
-int sockopen(int, const std::string&, int)
-{
-    return 0;
-}
-
-
-
-void sockclose()
-{
-}
-
-
-
-int sockget(const std::string&, int)
-{
-    return 0;
-}
-
-
-
-int sockput(const std::string&)
-{
-    return 0;
-}
-
-
-
-void netinit()
-{
-}
-
-
-
-void netexec(int&)
-{
-}
-
-
-
-void neterror(const std::string&)
-{
-}
-
-
-
-void neturl(const std::string&)
-{
-}
-
-
-
-void netdlname(const std::string&)
-{
-}
-
-
-
-void netrequest(const std::string&)
-{
-}
-
-
-
-void GetLastError()
-{
-}
-
-
-
-int CreateMutexA(int, int, const std::string&)
-{
-    return 42; // Any positive number.
-}
-
-
-
-void CloseHandle(int)
-{
-}
-
-
-
-int func_3()
-{
-    return 0;
-}
-
-
-
-int LCMapStringA(int, int, const std::string&, int, const std::string&, int)
-{
-    return 0;
-}
-
-
-
-int GetUserDefaultLCID()
-{
-    return 0;
-}
-
-
-
-void AppendMenuA()
-{
-}
-
-
-
-void CheckMenuRadioItem()
-{
-}
-
-
-
-void CreateMenu()
-{
-}
-
-
-
-void CreatePopupMenu()
-{
-}
-
-
-
-void DrawMenuBar()
-{
-}
-
-
-
-void SetMenu()
-{
-}
-
-
-
-void keybd_event(int, int, int)
-{
-}
-
-
-
-void GetKeyboardState(elona_vector1<int>&)
-{
 }
 
 
@@ -1360,18 +982,6 @@ int ImmGetOpenStatus(int)
 void onkey_0()
 {
     snail::hsp::onkey_0();
-}
-
-
-
-void onkey_1()
-{
-}
-
-
-
-void end()
-{
 }
 
 
@@ -1471,21 +1081,6 @@ int talk_conv(std::string& text, int max_line_length)
     {
         return talk_conv_en(text, max_line_length);
     }
-}
-
-
-
-void rm_crlf(std::string& str)
-{
-    std::string ret;
-    for (const auto& c : str)
-    {
-        if (c != '\n' && c != '\r')
-        {
-            ret += c;
-        }
-    }
-    str = ret;
 }
 
 

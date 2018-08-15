@@ -2,12 +2,12 @@
 #include "ability.hpp"
 #include "buff.hpp"
 #include "character.hpp"
+#include "db_item.hpp"
 #include "debug.hpp"
 #include "elona.hpp"
 #include "fov.hpp"
 #include "i18n.hpp"
 #include "item.hpp"
-#include "item_db.hpp"
 #include "map.hpp"
 #include "random.hpp"
 #include "variables.hpp"
@@ -240,7 +240,7 @@ optional<skill_damage> calc_skill_damage(int skill, int cc, int power)
 int calcobjlv(int base)
 {
     int ret = base <= 0 ? gdata_current_dungeon_level : base;
-    if (gdata_current_map == 30)
+    if (gdata_current_map == mdata_t::map_id_t::shelter_)
     {
         ret = 1;
     }
@@ -317,7 +317,7 @@ int decfame(int cc, int base)
 
 int calcshopreform()
 {
-    return mdata(18) * 100 + 1000;
+    return mdata_map_max_item_count * 100 + 1000;
 }
 
 
@@ -379,7 +379,8 @@ int calc_rate_to_pierce(int id)
 std::string calcage(int cc)
 {
     int n = gdata_year - cdata[cc].birth_year;
-    return n >= 0 ? std::to_string(n) : lang(u8"不明", u8"Unknown");
+    return n >= 0 ? std::to_string(n)
+                  : i18n::s.get("core.locale.chara.age_unknown");
 }
 
 
@@ -684,14 +685,15 @@ int calcattackdmg(int prm_894)
     {
         if (trait(207))
         {
-            dmgfix += 5 + cdata[0].level * 2 / 3;
+            dmgfix += 5 + cdata.player().level * 2 / 3;
         }
     }
     if (prm_894 == 1)
     {
         return damage;
     }
-    prot = cdata[tc].pv + sdata(chara_armor_class(tc), tc) + sdata(12, tc) / 10;
+    prot = cdata[tc].pv + sdata(chara_armor_class(cdata[tc]), tc)
+        + sdata(12, tc) / 10;
     if (prot > 0)
     {
         prot2 = prot / 4;
@@ -750,10 +752,10 @@ int calcattackdmg(int prm_894)
         if (cdata[cc].rate_to_pierce > rnd(100))
         {
             pierce = 100;
-            if (is_in_fov(cc))
+            if (is_in_fov(cdata[cc]))
             {
                 txtef(5);
-                txt(lang(u8" *シャキーン* "s, u8"*vopal*"s));
+                txt(i18n::s.get("core.locale.damage.vorpal.melee"));
             }
         }
     }
@@ -762,10 +764,10 @@ int calcattackdmg(int prm_894)
         if (ammoproc == 2)
         {
             pierce = 60;
-            if (is_in_fov(cc))
+            if (is_in_fov(cdata[cc]))
             {
                 txtef(5);
-                txt(lang(u8" *ズバシュッ* "s, u8"*vopal*"s));
+                txt(i18n::s.get("core.locale.damage.vorpal.ranged"));
             }
         }
         if (ammoprocbk == 0)
@@ -854,8 +856,8 @@ int calcitemvalue(int ci, int situation)
         }
         else
         {
-            ret = cdata[0].level / 5
-                    * ((gdata_random_seed + ci * 31) % cdata[0].level + 4)
+            ret = cdata.player().level / 5
+                    * ((gdata_random_seed + ci * 31) % cdata.player().level + 4)
                 + 10;
         }
     }
@@ -902,7 +904,10 @@ int calcitemvalue(int ci, int situation)
         if (situation == 0)
         {
             ret += clamp(
-                cdata[0].fame / 40 + ret * (cdata[0].fame / 80) / 100, 0, 800);
+                cdata.player().fame / 40
+                    + ret * (cdata.player().fame / 80) / 100,
+                0,
+                800);
         }
     }
     if (inv[ci].weight < 0)
@@ -1028,7 +1033,8 @@ int calcinvestvalue()
 
 int calcguiltvalue()
 {
-    return -(cdata[0].karma + 30) * (cdata[0].fame / 2 + cdata[0].level * 200);
+    return -(cdata.player().karma + 30)
+        * (cdata.player().fame / 2 + cdata.player().level * 200);
 }
 
 
@@ -1086,19 +1092,18 @@ void generatemoney(int cc)
 void calccosthire()
 {
     int cost{};
-    for (int cnt = ELONA_MAX_PARTY_CHARACTERS; cnt < ELONA_MAX_CHARACTERS;
-         ++cnt)
+    for (auto&& cnt : cdata.others())
     {
-        if (cdata[cnt].character_role == 0)
+        if (cnt.character_role == 0)
             continue;
-        if (cdata[cnt].state != 1)
+        if (cnt.state() != character::state_t::alive)
             continue;
-        cost += calchirecost(cnt);
+        cost += calchirecost(cnt.index);
     }
     cost = cost
         * clamp(
-               100 - clamp(cdata[0].karma / 2, 0, 50) - 7 * trait(38)
-                   - (cdata[0].karma >= 20) * 5,
+               100 - clamp(cdata.player().karma / 2, 0, 50) - 7 * trait(38)
+                   - (cdata.player().karma >= 20) * 5,
                25,
                200)
         / 100;
@@ -1115,19 +1120,19 @@ int calccostbuilding()
     {
         switch (adata(16, cnt))
         {
-        case 101: cost += 1500; break;
-        case 31: cost += 1000; break;
-        case 103: cost += 750; break;
-        case 102: cost += 5000; break;
-        case 104: cost += 750; break;
+        case mdata_t::map_id_t::museum: cost += 1500; break;
+        case mdata_t::map_id_t::ranch: cost += 1000; break;
+        case mdata_t::map_id_t::crop: cost += 750; break;
+        case mdata_t::map_id_t::shop: cost += 5000; break;
+        case mdata_t::map_id_t::storage_house: cost += 750; break;
         default: break;
         }
     }
 
     return cost
         * clamp(
-               100 - clamp(cdata[0].karma / 2, 0, 50) - 7 * trait(38)
-                   - (cdata[0].karma >= 20) * 5,
+               100 - clamp(cdata.player().karma / 2, 0, 50) - 7 * trait(38)
+                   - (cdata.player().karma >= 20) * 5,
                25,
                200)
         / 100;
@@ -1138,13 +1143,13 @@ int calccostbuilding()
 int calccosttax()
 {
     int cost{};
-    cost += cdata[0].gold / 1000;
-    cost += cdata[0].fame;
-    cost += cdata[0].level * 200;
+    cost += cdata.player().gold / 1000;
+    cost += cdata.player().fame;
+    cost += cdata.player().level * 200;
     return cost
         * clamp(
-               100 - clamp(cdata[0].karma / 2, 0, 50) - 7 * trait(38)
-                   - (cdata[0].karma >= 20) * 5,
+               100 - clamp(cdata.player().karma / 2, 0, 50) - 7 * trait(38)
+                   - (cdata.player().karma >= 20) * 5,
                25,
                200)
         / 100;
@@ -1165,7 +1170,7 @@ int calccostreload(int owner, bool do_reload)
 
     for (const auto& cnt : items(owner))
     {
-        if (inv[cnt].number == 0)
+        if (inv[cnt].number() == 0)
             continue;
         if (the_item_db[inv[cnt].id]->category != 25000)
             continue;
@@ -1224,7 +1229,7 @@ int calcidentifyvalue(int type)
         int need_to_identify{};
         for (const auto& cnt : items(0))
         {
-            if (inv[cnt].number == 0)
+            if (inv[cnt].number() == 0)
             {
                 continue;
             }
@@ -1267,8 +1272,9 @@ int calclearncost(int skill_id, int cc, bool discount)
 
 int calcresurrectvalue(int pet)
 {
-    return cdata[pet].state != 6 ? 100
-                                 : cdata[pet].level * cdata[pet].level * 15;
+    return cdata[pet].state() != character::state_t::pet_dead
+        ? 100
+        : cdata[pet].level * cdata[pet].level * 15;
 }
 
 
@@ -1301,7 +1307,8 @@ int calcinitgold(int owner)
 {
     if (owner < 0)
     {
-        return rnd(gdata_current_dungeon_level * 25 * (gdata_current_map != 30)
+        return rnd(gdata_current_dungeon_level * 25
+                       * (gdata_current_map != mdata_t::map_id_t::shelter_)
                    + 10)
             + 1;
     }
@@ -1362,7 +1369,7 @@ int calcspellfail(int id, int cc)
 
     int penalty = 4;
 
-    int armor_skill = chara_armor_class(cc);
+    int armor_skill = chara_armor_class(cdata[cc]);
     if (armor_skill == 169)
     {
         penalty = 17 - sdata(169, cc) / 5;
@@ -1473,7 +1480,7 @@ int calcspellcoststock(int id, int cc)
 
 int calcscore()
 {
-    int score = cdata[0].level * cdata[0].level
+    int score = cdata.player().level * cdata.player().level
         + gdata_deepest_dungeon_level * gdata_deepest_dungeon_level
         + gdata_kill_count;
     if (gdata_death_count > 1)
@@ -1492,18 +1499,17 @@ int calcscore()
 void calcpartyscore()
 {
     int score = 0;
-    for (int cnt = ELONA_MAX_PARTY_CHARACTERS; cnt < ELONA_MAX_CHARACTERS;
-         ++cnt)
+    for (auto&& cnt : cdata.others())
     {
-        if (cdata[cnt].state != 1)
+        if (cnt.state() != character::state_t::alive)
         {
             continue;
         }
-        if (cdata[cnt].impression >= 53)
+        if (cnt.impression >= 53)
         {
-            score += cdata[cnt].level + 5;
+            score += cnt.level + 5;
         }
-        if (cdata[cnt].impression < 50)
+        if (cnt.impression < 50)
         {
             score -= 20;
         }
@@ -1528,29 +1534,49 @@ void calcpartyscore()
 void calcpartyscore2()
 {
     int score{};
-    for (int cnt = ELONA_MAX_PARTY_CHARACTERS; cnt < ELONA_MAX_CHARACTERS;
-         ++cnt)
+    for (auto&& cnt : cdata.others())
     {
-        if (cdata[cnt].state != 1)
+        if (cnt.state() != character::state_t::alive)
         {
             continue;
         }
-        if (cdata[cnt].impression >= 53 && cdata[cnt].quality >= 4)
+        if (cnt.impression >= 53 && cnt.quality >= 4)
         {
-            score += 20 + cdata[cnt].level / 2;
-            txt(lang(
-                cdatan(0, cnt) + u8"は満足した。"s,
-                cdatan(0, cnt) + u8" "s + is(cnt) + u8" satisfied."s));
+            score += 20 + cnt.level / 2;
+            txt(i18n::s.get("core.locale.quest.party.is_satisfied", cnt));
         }
     }
     if (score != 0)
     {
-        txt(lang(
-            u8"(合計ボーナス:"s + score + u8"%) "s,
-            u8"(Total Bonus:"s + score + u8"%)"s));
+        txt(i18n::s.get("core.locale.quest.party.total_bonus", score));
     }
     qdata(13, gdata_executing_immediate_quest) =
         qdata(13, gdata_executing_immediate_quest) * (100 + score) / 100;
+}
+
+
+int generate_color(color_index_t index, int id)
+{
+    int color = static_cast<int>(index);
+    if (index == color_index_t::random_furniture)
+    {
+        color = choice(randcolor);
+    }
+    if (index == color_index_t::random_seeded)
+    {
+        // The choice can't be completely random - it has to be the
+        // same as all other items of this type. So, base it off the
+        // random seed of the current save data.
+        color = _randcolor((id + gdata_random_seed) % 6);
+    }
+    if (index == color_index_t::random_any)
+    {
+        color = rnd(21);
+    }
+
+    // Only accept the first 21 color indices, as the ones after that are
+    // used for random generation.
+    return color % 21;
 }
 
 

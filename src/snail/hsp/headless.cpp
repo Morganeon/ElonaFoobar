@@ -1,4 +1,5 @@
 #include <iostream>
+#include "../application.hpp"
 
 namespace elona
 {
@@ -16,7 +17,7 @@ void mes(const std::string&)
 {
 }
 
-void mesbox(std::string&, bool)
+void mesbox(std::string&, int, bool)
 {
 }
 
@@ -60,11 +61,11 @@ void color(int, int, int)
 {
 }
 
-void font(int, snail::font_t::style_t, const std::string&)
+void font(int, snail::font_t::style_t, const fs::path&)
 {
 }
 
-void gcopy(int, int, int, int, int)
+void gcopy(int, int, int, int, int, int, int)
 {
 }
 
@@ -73,36 +74,40 @@ int ginfo(int)
     return 0;
 }
 
-void gmode(int, int, int, int)
+void gmode(int, int)
 {
 }
 
-void grotate2(int, int, int, double, int, int)
+
+
+void grotate(int, int, int, int, int, int, int, double)
 {
 }
 
-void grotate(int, int, int, double, int, int)
+
+
+void grotate(int, int, int, int, int, double)
 {
 }
+
+
 
 void gsel(int)
 {
 }
 
-void gzoom(int, int, int, int, int, int, int, bool)
+
+
+void line(int, int, int, int, const snail::color&)
 {
 }
 
-void line(int, int)
+void title(
+    const std::string& title_str,
+    const std::string&,
+    window::fullscreen_mode_t)
 {
-}
-
-void line(int, int, int, int)
-{
-}
-
-void title(const std::string&, const std::string&, window::fullscreen_mode_t)
-{
+    application::instance().initialize(title_str);
 }
 
 

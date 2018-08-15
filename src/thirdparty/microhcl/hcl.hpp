@@ -11,23 +11,25 @@
 #include <iterator>
 #include <sstream>
 #include <string>
-#ifdef MICROHCL_USE_MAP
-#include <map>
-#else
+#include <vector>
+
+#ifndef MICROHCL_MAP_TYPE
 #include <unordered_map>
 #endif
-#include <vector>
 
 namespace hcl {
 
 class Value;
 typedef std::vector<Value> List;
 
-#ifdef MICROHCL_USE_MAP
-typedef std::map<std::string, Value> Object;
-#else
-typedef std::unordered_map<std::string, Value> Object;
+#ifndef MICROHCL_MAP_TYPE
+#define MICROHCL_MAP_TYPE std::unordered_map
 #endif
+#ifndef MICROHCL_MAP_ACCESSOR
+#define MICROHCL_MAP_ACCESSOR &it->second
+#endif
+
+typedef MICROHCL_MAP_TYPE<std::string, Value> Object;
 
 namespace internal {
 template<typename T> struct call_traits_value {
@@ -647,6 +649,7 @@ inline Token Lexer::nextStringDoubleQuote()
         return Token(TokenType::ILLEGAL, std::string("string didn't start with '\"'"));
 
     std::string s;
+    int startLine = lineNo_;
     char c;
     int braces = 0;
     bool dollar = false;
@@ -714,7 +717,7 @@ inline Token Lexer::nextStringDoubleQuote()
                 return Token(TokenType::ILLEGAL, std::string("string has unknown escape sequence"));
             }
         } else if (c == '\n' && braces == 0) {
-            return Token(TokenType::ILLEGAL, std::string("found newline while parsing non-HIL string literal"));
+            return Token(TokenType::ILLEGAL, std::string("found newline while parsing non-HIL string literal (begun on line " + std::to_string(startLine) + ")"));
         } else if (c == '"' && braces == 0) {
             if (hil)
                 return Token(TokenType::HIL, s);
@@ -1751,7 +1754,7 @@ inline const Value& Value::operator[](size_t index) const
     if (const Value* v = find(index))
         return *v;
 
-    failwith("no such key");
+    failwith("no such index: " + std::to_string(index));
 }
 
 inline const Value& Value::operator[](const std::string& key) const
@@ -1762,7 +1765,7 @@ inline const Value& Value::operator[](const std::string& key) const
     if (const Value* v = findChild(key))
         return *v;
 
-    failwith("no such key");
+    failwith("no such key: " + key);
 }
 
 template<typename T>
@@ -1865,7 +1868,7 @@ inline Value* Value::findChild(const std::string& key)
     if (it == object_->end())
         return nullptr;
 
-    return &it->second;
+    return MICROHCL_MAP_ACCESSOR;
 }
 
 inline const Value* Value::findChild(const std::string& key) const
@@ -1877,7 +1880,7 @@ inline const Value* Value::findChild(const std::string& key) const
     if (it == object_->end())
         return nullptr;
 
-    return &it->second;
+    return MICROHCL_MAP_ACCESSOR;
 }
 
 // ----------------------------------------------------------------------
@@ -2048,7 +2051,6 @@ inline bool Parser::parseObjectType(Value& currentValue)
     Value result = parseObjectList(true);
 
     if(!errorReason().empty()) {
-        addError("failed parsing object list");
         return false;
     }
 

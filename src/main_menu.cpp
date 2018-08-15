@@ -7,6 +7,7 @@
 #include "input.hpp"
 #include "macro.hpp"
 #include "main_menu.hpp"
+#include "menu.hpp"
 #include "random.hpp"
 #include "ui.hpp"
 #include "variables.hpp"
@@ -19,7 +20,7 @@ main_menu_result_t main_title_menu()
 {
     mode = 10;
     lomiaseaster = 0;
-    play_music(65);
+    play_music("core.mcOpening");
     cs = 0;
     cs_bk = -1;
     keyrange = 6;
@@ -35,7 +36,7 @@ main_menu_result_t main_title_menu()
     gmode(0);
     pos(0, 0);
     picload(filesystem::dir::graphic() / u8"title.bmp", 1);
-    gzoom(4, 0, 0, 800, 600, windoww, windowh);
+    gcopy(4, 0, 0, 800, 600, windoww, windowh);
     gmode(2);
     font(13 - en * 2);
     color(255, 255, 255);
@@ -44,7 +45,7 @@ main_menu_result_t main_title_menu()
     color(0, 0, 0);
     color(255, 255, 255);
     pos(20, 38);
-    mes(u8"  Variant Foobar version "s + latest_version.short_string()
+    mes(u8"  Variant foobar version "s + latest_version.short_string()
         + u8"  Developed by KI");
     color(0, 0, 0);
     if (jp)
@@ -59,6 +60,8 @@ main_menu_result_t main_title_menu()
         color(255, 255, 255);
         pos(20, 56);
         mes(u8"Contributor f1r3fly, Sunstrike, Schmidt, Elvenspirit / View the credits for more"s);
+        pos(20, 76);
+        mes(u8"omake/oo translator: Doorknob");
         color(0, 0, 0);
     }
     if (jp)
@@ -76,9 +79,9 @@ main_menu_result_t main_title_menu()
     cmbg = 4;
     x = ww / 5 * 4;
     y = wh - 80;
-    gmode(4, 180, 300, 50);
     pos(wx + 160, wy + wh / 2);
-    grotate(2, cmbg / 2 * 180, cmbg % 2 * 300, 0, x, y);
+    gmode(4, 50);
+    gcopy_c(2, cmbg / 2 * 180, cmbg % 2 * 300, 180, 300, x, y);
     gmode(2);
     if (jp)
     {
@@ -298,7 +301,7 @@ main_menu_result_t main_menu_new_game()
     gsel(4);
     pos(0, 0);
     picload(filesystem::dir::graphic() / u8"void.bmp", 1);
-    gzoom(4, 0, 0, 800, 600, windoww, windowh);
+    gcopy(4, 0, 0, 800, 600, windoww, windowh);
     load_background_variants(2);
     gsel(3);
     pos(960, 96);
@@ -345,7 +348,7 @@ main_menu_result_t main_menu_continue()
 
     while (true)
     {
-savegame_change_page:
+    savegame_change_page:
         cs_bk = -1;
         pagemax = (listmax - 1) / pagesize;
         if (page < 0)
@@ -367,7 +370,7 @@ savegame_change_page:
             s = u8"Which save game do you want to continue?"s;
         }
         draw_caption();
-savegame_draw_page:
+    savegame_draw_page:
         if (jp)
         {
             s(0) = u8"冒険者の選択"s;
@@ -472,7 +475,7 @@ savegame_draw_page:
                     if (rtval == 0)
                     {
                         snd(20);
-                        ctrl_file(file_operation_t::_9);
+                        ctrl_file(file_operation_t::save_game_delete);
                     }
                     return main_menu_result_t::main_menu_continue;
                 }
@@ -513,7 +516,7 @@ main_menu_result_t main_menu_incarnate()
     gsel(4);
     pos(0, 0);
     picload(filesystem::dir::graphic() / u8"void.bmp", 1);
-    gzoom(4, 0, 0, 800, 600, windoww, windowh);
+    gcopy(4, 0, 0, 800, 600, windoww, windowh);
     gsel(0);
     gmode(0);
     pos(0, 0);

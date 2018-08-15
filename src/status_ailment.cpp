@@ -1,10 +1,12 @@
 #include "status_ailment.hpp"
 #include "ability.hpp"
+#include "activity.hpp"
 #include "buff.hpp"
 #include "character.hpp"
 #include "element.hpp"
 #include "elona.hpp"
 #include "fov.hpp"
+#include "i18n.hpp"
 #include "map.hpp"
 #include "random.hpp"
 #include "variables.hpp"
@@ -63,12 +65,11 @@ void dmgcon(int cc, status_ailment_t status_ailment, int power)
         if (cdata[cc].blind == 0)
         {
             cdata[cc].blind = turn;
-            if (is_in_fov(cc))
+            if (is_in_fov(cdata[cc]))
             {
                 txtef(8);
-                txt(lang(
-                    name(cc) + u8"は盲目になった。"s,
-                    name(cc) + u8" "s + is(cc) + u8" blinded."s));
+                txt(i18n::s.get(
+                    "core.locale.status_ailment.blinded.apply", cdata[cc]));
             }
         }
         else
@@ -80,7 +81,7 @@ void dmgcon(int cc, status_ailment_t status_ailment, int power)
     case status_ailment_t::confused:
         if (cdata[cc].is_immune_to_confusion())
             return;
-        if (buff_find(cc, 7) != -1)
+        if (buff_has(cdata[cc], 7))
             return;
         if (cdata[cc].quality > 3 && rnd(cdata[cc].level / 2 + 1))
             return;
@@ -91,12 +92,11 @@ void dmgcon(int cc, status_ailment_t status_ailment, int power)
         if (cdata[cc].confused == 0)
         {
             cdata[cc].confused = turn;
-            if (is_in_fov(cc))
+            if (is_in_fov(cdata[cc]))
             {
                 txtef(8);
-                txt(lang(
-                    name(cc) + u8"は混乱した。"s,
-                    name(cc) + u8" "s + is(cc) + u8" confused."s));
+                txt(i18n::s.get(
+                    "core.locale.status_ailment.confused.apply", cdata[cc]));
             }
         }
         else
@@ -117,12 +117,11 @@ void dmgcon(int cc, status_ailment_t status_ailment, int power)
         if (cdata[cc].paralyzed == 0)
         {
             cdata[cc].paralyzed = turn;
-            if (is_in_fov(cc))
+            if (is_in_fov(cdata[cc]))
             {
                 txtef(8);
-                txt(lang(
-                    name(cc) + u8"は麻痺した。"s,
-                    name(cc) + u8" "s + is(cc) + u8" paralyzed."s));
+                txt(i18n::s.get(
+                    "core.locale.status_ailment.paralyzed.apply", cdata[cc]));
             }
         }
         else
@@ -144,12 +143,11 @@ void dmgcon(int cc, status_ailment_t status_ailment, int power)
         if (cdata[cc].poisoned == 0)
         {
             cdata[cc].poisoned = turn;
-            if (is_in_fov(cc))
+            if (is_in_fov(cdata[cc]))
             {
                 txtef(8);
-                txt(lang(
-                    name(cc) + u8"は毒におかされた。"s,
-                    name(cc) + u8" "s + is(cc) + u8" poisoned."s));
+                txt(i18n::s.get(
+                    "core.locale.status_ailment.poisoned.apply", cdata[cc]));
             }
         }
         else
@@ -170,12 +168,11 @@ void dmgcon(int cc, status_ailment_t status_ailment, int power)
         if (cdata[cc].sleep == 0)
         {
             cdata[cc].sleep = turn;
-            if (is_in_fov(cc))
+            if (is_in_fov(cdata[cc]))
             {
                 txtef(8);
-                txt(lang(
-                    name(cc) + u8"は眠りにおちた。"s,
-                    name(cc) + u8" fall"s + _s(cc) + u8" asleep."s));
+                txt(i18n::s.get(
+                    "core.locale.status_ailment.sleep.apply", cdata[cc]));
             }
         }
         else
@@ -187,9 +184,9 @@ void dmgcon(int cc, status_ailment_t status_ailment, int power)
     case status_ailment_t::fear:
         if (cdata[cc].is_immune_to_fear())
             return;
-        if (buff_find(cc, 1) != -1)
+        if (buff_has(cdata[cc], 1))
             return;
-        if (buff_find(cc, 7) != -1)
+        if (buff_has(cdata[cc], 7))
             return;
         if (cdata[cc].quality > 3 && rnd(cdata[cc].level / 5 + 1))
             return;
@@ -201,11 +198,10 @@ void dmgcon(int cc, status_ailment_t status_ailment, int power)
         {
             cdata[cc].fear = turn;
         }
-        if (is_in_fov(cc))
+        if (is_in_fov(cdata[cc]))
         {
-            txt(lang(
-                name(cc) + u8"は恐怖に侵された。"s,
-                name(cc) + u8" "s + is(cc) + u8" frightened."s));
+            txt(i18n::s.get(
+                "core.locale.status_ailment.fear.apply", cdata[cc]));
         }
         return;
     case status_ailment_t::dimmed:
@@ -220,12 +216,11 @@ void dmgcon(int cc, status_ailment_t status_ailment, int power)
         if (cdata[cc].dimmed == 0)
         {
             cdata[cc].dimmed = turn;
-            if (is_in_fov(cc))
+            if (is_in_fov(cdata[cc]))
             {
                 txtef(8);
-                txt(lang(
-                    name(cc) + u8"は朦朧とした。"s,
-                    name(cc) + u8" "s + is(cc) + u8" dimmed."s));
+                txt(i18n::s.get(
+                    "core.locale.status_ailment.dimmed.apply", cdata[cc]));
             }
         }
         else
@@ -245,12 +240,11 @@ void dmgcon(int cc, status_ailment_t status_ailment, int power)
         if (cdata[cc].bleeding == 0)
         {
             cdata[cc].bleeding = turn;
-            if (is_in_fov(cc))
+            if (is_in_fov(cdata[cc]))
             {
                 txtef(8);
-                txt(lang(
-                    name(cc) + u8"は血を流し始めた。"s,
-                    name(cc) + u8" begin"s + _s(cc) + u8" to bleed."s));
+                txt(i18n::s.get(
+                    "core.locale.status_ailment.bleeding.apply", cdata[cc]));
             }
         }
         else
@@ -266,11 +260,10 @@ void dmgcon(int cc, status_ailment_t status_ailment, int power)
         if (cdata[cc].drunk == 0)
         {
             cdata[cc].drunk = turn;
-            if (is_in_fov(cc))
+            if (is_in_fov(cdata[cc]))
             {
-                txt(lang(
-                    name(cc) + u8"は酔っ払った。"s,
-                    name(cc) + u8" get"s + _s(cc) + u8" drunk."s));
+                txt(i18n::s.get(
+                    "core.locale.status_ailment.drunk.apply", cdata[cc]));
             }
         }
         else
@@ -285,12 +278,11 @@ void dmgcon(int cc, status_ailment_t status_ailment, int power)
         if (cdata[cc].insane == 0)
         {
             cdata[cc].insane = turn;
-            if (is_in_fov(cc))
+            if (is_in_fov(cdata[cc]))
             {
                 txtef(8);
-                txt(lang(
-                    name(cc) + u8"は気が狂った。"s,
-                    name(cc) + u8" become"s + _s(cc) + u8" insane."s));
+                txt(i18n::s.get(
+                    "core.locale.status_ailment.insane.apply", cdata[cc]));
             }
         }
         else
@@ -306,12 +298,11 @@ void dmgcon(int cc, status_ailment_t status_ailment, int power)
         if (cdata[cc].sick == 0)
         {
             cdata[cc].sick = turn;
-            if (is_in_fov(cc))
+            if (is_in_fov(cdata[cc]))
             {
                 txtef(8);
-                txt(lang(
-                    name(cc) + u8"は病気になった。"s,
-                    name(cc) + u8" get"s + _s(cc) + u8" sick."s));
+                txt(i18n::s.get(
+                    "core.locale.status_ailment.sick.apply", cdata[cc]));
             }
         }
         else
@@ -344,12 +335,10 @@ void healcon(int prm_827, int prm_828, int prm_829)
             if (cdata[prm_827].fear <= 0)
             {
                 cdata[prm_827].fear = 0;
-                if (is_in_fov(prm_827))
+                if (is_in_fov(cdata[prm_827]))
                 {
-                    txt(lang(
-                        name(prm_827) + u8"は恐怖から立ち直った。"s,
-                        name(prm_827) + u8" shake"s + _s(prm_827) + u8" off "s
-                            + his(prm_827) + u8" fear."s));
+                    txt(i18n::s.get(
+                        "core.locale.status_ailment.fear.heal", cdata[cc]));
                 }
             }
             return;
@@ -370,11 +359,10 @@ void healcon(int prm_827, int prm_828, int prm_829)
             if (cdata[prm_827].blind <= 0)
             {
                 cdata[prm_827].blind = 0;
-                if (is_in_fov(prm_827))
+                if (is_in_fov(cdata[prm_827]))
                 {
-                    txt(lang(
-                        name(prm_827) + u8"は盲目から回復した。"s,
-                        name(prm_827) + u8" can see again."s));
+                    txt(i18n::s.get(
+                        "core.locale.status_ailment.blinded.heal", cdata[cc]));
                 }
             }
             return;
@@ -395,12 +383,10 @@ void healcon(int prm_827, int prm_828, int prm_829)
             if (cdata[prm_827].confused <= 0)
             {
                 cdata[prm_827].confused = 0;
-                if (is_in_fov(prm_827))
+                if (is_in_fov(cdata[prm_827]))
                 {
-                    txt(lang(
-                        name(prm_827) + u8"は混乱から回復した。"s,
-                        name(prm_827) + u8" recover"s + _s(prm_827)
-                            + u8" from confusion."s));
+                    txt(i18n::s.get(
+                        "core.locale.status_ailment.confused.heal", cdata[cc]));
                 }
             }
             return;
@@ -421,12 +407,11 @@ void healcon(int prm_827, int prm_828, int prm_829)
             if (cdata[prm_827].paralyzed <= 0)
             {
                 cdata[prm_827].paralyzed = 0;
-                if (is_in_fov(prm_827))
+                if (is_in_fov(cdata[prm_827]))
                 {
-                    txt(lang(
-                        name(prm_827) + u8"は麻痺から回復した。"s,
-                        name(prm_827) + u8" recover"s + _s(prm_827)
-                            + u8" from paralysis."s));
+                    txt(i18n::s.get(
+                        "core.locale.status_ailment.paralyzed.heal",
+                        cdata[cc]));
                 }
             }
             return;
@@ -447,12 +432,10 @@ void healcon(int prm_827, int prm_828, int prm_829)
             if (cdata[prm_827].poisoned <= 0)
             {
                 cdata[prm_827].poisoned = 0;
-                if (is_in_fov(prm_827))
+                if (is_in_fov(cdata[prm_827]))
                 {
-                    txt(lang(
-                        name(prm_827) + u8"は毒から回復した。"s,
-                        name(prm_827) + u8" recover"s + _s(prm_827)
-                            + u8" from poison."s));
+                    txt(i18n::s.get(
+                        "core.locale.status_ailment.poisoned.heal", cdata[cc]));
                 }
             }
             return;
@@ -473,12 +456,10 @@ void healcon(int prm_827, int prm_828, int prm_829)
             if (cdata[prm_827].sleep <= 0)
             {
                 cdata[prm_827].sleep = 0;
-                if (is_in_fov(prm_827))
+                if (is_in_fov(cdata[prm_827]))
                 {
-                    txt(lang(
-                        name(prm_827) + u8"は心地よい眠りから覚めた。"s,
-                        name(prm_827) + u8" awake"s + _s(prm_827) + u8" from "s
-                            + his(prm_827) + u8" sleep."s));
+                    txt(i18n::s.get(
+                        "core.locale.status_ailment.sleep.heal", cdata[cc]));
                 }
             }
             return;
@@ -499,12 +480,10 @@ void healcon(int prm_827, int prm_828, int prm_829)
             if (cdata[prm_827].dimmed <= 0)
             {
                 cdata[prm_827].dimmed = 0;
-                if (is_in_fov(prm_827))
+                if (is_in_fov(cdata[prm_827]))
                 {
-                    txt(lang(
-                        name(prm_827) + u8"の意識ははっきりした。"s,
-                        name(prm_827) + u8" recover"s + _s(prm_827)
-                            + u8" from poison."s));
+                    txt(i18n::s.get(
+                        "core.locale.status_ailment.dimmed.heal", cdata[cc]));
                 }
             }
         }
@@ -524,11 +503,10 @@ void healcon(int prm_827, int prm_828, int prm_829)
             if (cdata[prm_827].bleeding <= 0)
             {
                 cdata[prm_827].bleeding = 0;
-                if (is_in_fov(prm_827))
+                if (is_in_fov(cdata[prm_827]))
                 {
-                    txt(lang(
-                        name(prm_827) + u8"の出血は止まった。"s,
-                        name(prm_827) + your(prm_827) + u8" bleeding stops."s));
+                    txt(i18n::s.get(
+                        "core.locale.status_ailment.bleeding.heal", cdata[cc]));
                 }
             }
         }
@@ -548,12 +526,10 @@ void healcon(int prm_827, int prm_828, int prm_829)
             if (cdata[prm_827].drunk <= 0)
             {
                 cdata[prm_827].drunk = 0;
-                if (is_in_fov(prm_827))
+                if (is_in_fov(cdata[prm_827]))
                 {
-                    txt(lang(
-                        name(prm_827) + u8"の酔いは覚めた。"s,
-                        name(prm_827) + u8" get"s + _s(prm_827)
-                            + u8" sober."s));
+                    txt(i18n::s.get(
+                        "core.locale.status_ailment.drunk.heal", cdata[cc]));
                 }
             }
         }
@@ -573,12 +549,10 @@ void healcon(int prm_827, int prm_828, int prm_829)
             if (cdata[prm_827].insane <= 0)
             {
                 cdata[prm_827].insane = 0;
-                if (is_in_fov(prm_827))
+                if (is_in_fov(cdata[prm_827]))
                 {
-                    txt(lang(
-                        name(prm_827) + u8"は正気に戻った。"s,
-                        name(prm_827) + u8" come"s + _s(prm_827) + u8" to "s
-                            + yourself(prm_827) + u8" again."s));
+                    txt(i18n::s.get(
+                        "core.locale.status_ailment.insane.heal", cdata[cc]));
                 }
             }
         }
@@ -598,12 +572,10 @@ void healcon(int prm_827, int prm_828, int prm_829)
             if (cdata[prm_827].sick <= 0)
             {
                 cdata[prm_827].sick = 0;
-                if (is_in_fov(prm_827))
+                if (is_in_fov(cdata[prm_827]))
                 {
-                    txt(lang(
-                        name(prm_827) + u8"の病気は治った。"s,
-                        name(prm_827) + u8" recover"s + _s(prm_827)
-                            + u8" from "s + his(prm_827) + u8" illness."s));
+                    txt(i18n::s.get(
+                        "core.locale.status_ailment.sick.heal", cdata[cc]));
                 }
             }
         }

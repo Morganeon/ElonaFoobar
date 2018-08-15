@@ -1,0 +1,62 @@
+# Change this variable to point to your Boost installation.
+BOOST_DIR = E:\local\boost_1_66_0
+
+BIN_DIR = bin
+PROGRAM = $(BIN_DIR)\ElonaFoobar.exe
+TEST_RUNNER = $(BIN_DIR)\test_runner.exe
+BENCH_RUNNER = $(BIN_DIR)\bench_runner.exe
+
+FORMAT = clang-format
+FIND = find
+XARGS = xargs
+MKDIR = mkdir
+
+BOOST_ROOT = $(BOOST_INCLUDEDIR)
+BOOST_INCLUDEDIR = $(BOOST_DIR)
+BOOST_LIBRARYDIR = $(BOOST_INCLUDEDIR)\lib64-msvc-14.1
+CMAKE_ARGS = \
+        -DBOOST_ROOT="$(BOOST_ROOT)" \
+        -DBOOST_INCLUDEDIR="$(BOOST_INCLUDEDIR)" \
+        -DBOOST_LIBRARYDIR="$(BOOST_LIBRARYDIR)" \
+        -G "Visual Studio 15 2017 Win64"
+
+
+all: build
+
+
+build: $(BIN_DIR) $(PROGRAM)
+
+
+tests: $(BIN_DIR) $(TEST_RUNNER)
+
+
+bench: $(BIN_DIR) $(BENCH_RUNNER)
+
+
+$(BIN_DIR):
+	$(MKDIR) $(BIN_DIR)
+
+
+$(PROGRAM): FORCE
+	cd $(BIN_DIR) & cmake .. $(CMAKE_ARGS) & cmake --build .
+
+
+$(TEST_RUNNER):
+	cd $(BIN_DIR) & cmake .. $(CMAKE_ARGS) -DWITH_TESTS=TESTS & cmake --build .
+
+
+$(BENCH_RUNNER):
+	cd $(BIN_DIR) & cmake .. $(CMAKE_ARGS) -DWITH_TESTS=BENCH --config Release & cmake --build .
+
+
+clean: FORCE
+	-rd /q /s $(BIN_DIR)
+
+
+format: FORCE
+	$(FIND) . \( -name "*.cpp" -or -name "*.hpp" \) -print0 | $(XARGS) -0 $(FORMAT) -i
+
+FORCE:
+
+
+rebuild: clean build
